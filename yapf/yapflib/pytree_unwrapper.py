@@ -1,4 +1,4 @@
-# Copyright 2015-2016 Google Inc. All Rights Reserved.
+# Copyright 2015-2017 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -52,9 +52,12 @@ def UnwrapPyTree(tree):
   uwlines.sort(key=lambda x: x.lineno)
   return uwlines
 
+
 # Grammar tokens considered as whitespace for the purpose of unwrapping.
-_WHITESPACE_TOKENS = frozenset([grammar_token.NEWLINE, grammar_token.DEDENT,
-                                grammar_token.INDENT, grammar_token.ENDMARKER])
+_WHITESPACE_TOKENS = frozenset([
+    grammar_token.NEWLINE, grammar_token.DEDENT, grammar_token.INDENT,
+    grammar_token.ENDMARKER
+])
 
 
 class PyTreeUnwrapper(pytree_visitor.PyTreeVisitor):
@@ -194,8 +197,13 @@ class PyTreeUnwrapper(pytree_visitor.PyTreeVisitor):
 
   def Visit_async_funcdef(self, node):  # pylint: disable=invalid-name
     self._StartNewLine()
-    self.Visit(node.children[0])
-    for child in node.children[1].children:
+    index = 0
+    for child in node.children:
+      index += 1
+      self.Visit(child)
+      if pytree_utils.NodeName(child) == 'ASYNC':
+        break
+    for child in node.children[index].children:
       self.Visit(child)
 
   _CLASS_DEF_ELEMS = frozenset({'class'})
@@ -205,8 +213,13 @@ class PyTreeUnwrapper(pytree_visitor.PyTreeVisitor):
 
   def Visit_async_stmt(self, node):  # pylint: disable=invalid-name
     self._StartNewLine()
-    self.Visit(node.children[0])
-    for child in node.children[1].children:
+    index = 0
+    for child in node.children:
+      index += 1
+      self.Visit(child)
+      if pytree_utils.NodeName(child) == 'ASYNC':
+        break
+    for child in node.children[index].children:
       self.Visit(child)
 
   def Visit_decorators(self, node):  # pylint: disable=invalid-name
@@ -245,7 +258,8 @@ class PyTreeUnwrapper(pytree_visitor.PyTreeVisitor):
     self.DefaultNodeVisit(node)
 
   def Visit_testlist_gexp(self, node):  # pylint: disable=invalid-name
-    _DetermineMustSplitAnnotation(node)
+    if _ContainsComments(node):
+      _DetermineMustSplitAnnotation(node)
     self.DefaultNodeVisit(node)
 
   def Visit_arglist(self, node):  # pylint: disable=invalid-name
@@ -327,6 +341,7 @@ def _DetermineMustSplitAnnotation(node):
       return
   num_children = len(node.children)
   index = 0
+  _SetMustSplitOnFirstLeaf(node.children[0])
   while index < num_children - 1:
     child = node.children[index]
     if isinstance(child, pytree.Leaf) and child.value == ',':

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright 2015-2016 Google Inc. All Rights Reserved.
+# Copyright 2015-2017 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,12 +14,12 @@
 # limitations under the License.
 
 import codecs
-import unittest
-from setuptools import setup, Command
 import sys
+import unittest
+
+from setuptools import setup, Command
 
 import yapf
-import yapftests
 
 
 class RunTests(Command):
@@ -40,29 +40,34 @@ class RunTests(Command):
 
 
 with codecs.open('README.rst', 'r', 'utf-8') as fd:
-  setup(name='yapf',
-        version=yapf.__version__,
-        description='A formatter for Python code.',
-        long_description=fd.read(),
-        license='Apache License, Version 2.0',
-        author='Google Inc.',
-        maintainer='Bill Wendling',
-        maintainer_email='morbo@google.com',
-        packages=['yapf', 'yapf.yapflib', 'yapftests'],
-        classifiers=[
-            'Development Status :: 4 - Beta',
-            'Environment :: Console',
-            'Intended Audience :: Developers',
-            'License :: OSI Approved :: Apache Software License',
-            'Operating System :: OS Independent',
-            'Programming Language :: Python',
-            'Programming Language :: Python :: 2',
-            'Programming Language :: Python :: 2.7',
-            'Programming Language :: Python :: 3',
-            'Programming Language :: Python :: 3.4',
-            'Programming Language :: Python :: 3.5',
-            'Topic :: Software Development :: Libraries :: Python Modules',
-            'Topic :: Software Development :: Quality Assurance',
-        ],
-        entry_points={'console_scripts': ['yapf = yapf:run_main'],},
-        cmdclass={'test': RunTests,},)
+  setup(
+      name='yapf',
+      version=yapf.__version__,
+      description='A formatter for Python code.',
+      long_description=fd.read(),
+      license='Apache License, Version 2.0',
+      author='Google Inc.',
+      maintainer='Bill Wendling',
+      maintainer_email='morbo@google.com',
+      packages=['yapf', 'yapf.yapflib', 'yapftests'],
+      classifiers=[
+          'Development Status :: 4 - Beta',
+          'Environment :: Console',
+          'Intended Audience :: Developers',
+          'License :: OSI Approved :: Apache Software License',
+          'Operating System :: OS Independent',
+          'Programming Language :: Python',
+          'Programming Language :: Python :: 2',
+          'Programming Language :: Python :: 2.7',
+          'Programming Language :: Python :: 3',
+          'Programming Language :: Python :: 3.4',
+          'Programming Language :: Python :: 3.5',
+          'Topic :: Software Development :: Libraries :: Python Modules',
+          'Topic :: Software Development :: Quality Assurance',
+      ],
+      entry_points={
+          'console_scripts': ['yapf = yapf:run_main'],
+      },
+      cmdclass={
+          'test': RunTests,
+      },)

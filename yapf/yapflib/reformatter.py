@@ -1,4 +1,4 @@
-# Copyright 2015-2016 Google Inc. All Rights Reserved.
+# Copyright 2015-2017 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,12 +36,14 @@ from yapf.yapflib import style
 from yapf.yapflib import verifier
 
 
-def Reformat(uwlines, verify=True):
+def Reformat(uwlines, verify=False, lines=None):
   """Reformat the unwrapped lines.
 
   Arguments:
     uwlines: (list of unwrapped_line.UnwrappedLine) Lines we want to format.
     verify: (bool) True if reformatted code should be verified for syntax.
+    lines: (set of int) The lines which can be modified or None if there is no
+      line range restriction.
 
   Returns:
     A string representing the reformatted code.
@@ -56,6 +58,7 @@ def Reformat(uwlines, verify=True):
 
     indent_amt = indent_width * uwline.depth
     state = format_decision_state.FormatDecisionState(uwline, indent_amt)
+    state.MoveStateToNextToken()
 
     if not uwline.disable:
       if uwline.first.is_comment:
@@ -65,17 +68,18 @@ def Reformat(uwlines, verify=True):
       if prev_uwline and prev_uwline.disable:
         # Keep the vertical spacing between a disabled and enabled formatting
         # region.
-        _RetainVerticalSpacingBetweenTokens(uwline.first, prev_uwline.last)
+        _RetainRequiredVerticalSpacingBetweenTokens(
+            uwline.first, prev_uwline.last, lines)
       if any(tok.is_comment for tok in uwline.tokens):
         _RetainVerticalSpacingBeforeComments(uwline)
 
     if (_LineContainsI18n(uwline) or uwline.disable or
         _LineHasContinuationMarkers(uwline)):
       _RetainHorizontalSpacing(uwline)
-      _RetainVerticalSpacing(uwline, prev_uwline)
+      _RetainRequiredVerticalSpacing(uwline, prev_uwline, lines)
       _EmitLineUnformatted(state)
-    elif (_CanPlaceOnSingleLine(uwline) and not any(tok.must_split
-                                                    for tok in uwline.tokens)):
+    elif _CanPlaceOnSingleLine(uwline) and not any(tok.must_split
+                                                   for tok in uwline.tokens):
       # The unwrapped line fits on one line.
       while state.next_token:
         state.AddTokenToState(newline=False, dry_run=False)
@@ -84,8 +88,9 @@ def Reformat(uwlines, verify=True):
         # Failsafe mode. If there isn't a solution to the line, then just emit
         # it as is.
         state = format_decision_state.FormatDecisionState(uwline, indent_amt)
+        state.MoveStateToNextToken()
         _RetainHorizontalSpacing(uwline)
-        _RetainVerticalSpacing(uwline, prev_uwline)
+        _RetainRequiredVerticalSpacing(uwline, prev_uwline, None)
         _EmitLineUnformatted(state)
 
     final_lines.append(uwline)
@@ -99,24 +104,27 @@ def _RetainHorizontalSpacing(uwline):
     tok.RetainHorizontalSpacing(uwline.first.column, uwline.depth)
 
 
-def _RetainVerticalSpacing(cur_uwline, prev_uwline):
+def _RetainRequiredVerticalSpacing(cur_uwline, prev_uwline, lines):
   prev_tok = None
   if prev_uwline is not None:
     prev_tok = prev_uwline.last
   for cur_tok in cur_uwline.tokens:
-    _RetainVerticalSpacingBetweenTokens(cur_tok, prev_tok)
+    _RetainRequiredVerticalSpacingBetweenTokens(cur_tok, prev_tok, lines)
     prev_tok = cur_tok
 
 
-def _RetainVerticalSpacingBetweenTokens(cur_tok, prev_tok):
-  """Retain vertical spacing between two tokens."""
+def _RetainRequiredVerticalSpacingBetweenTokens(cur_tok, prev_tok, lines):
+  """Retain vertical spacing between two tokens if not in editable range."""
   if prev_tok is None:
     return
 
   if prev_tok.is_string:
     prev_lineno = prev_tok.lineno + prev_tok.value.count('\n')
   elif prev_tok.is_pseudo_paren:
-    prev_lineno = prev_tok.previous_token.lineno
+    if not prev_tok.previous_token.is_multiline_string:
+      prev_lineno = prev_tok.previous_token.lineno
+    else:
+      prev_lineno = prev_tok.lineno
   else:
     prev_lineno = prev_tok.lineno
 
@@ -125,7 +133,19 @@ def _RetainVerticalSpacingBetweenTokens(cur_tok, prev_tok):
   else:
     cur_lineno = cur_tok.lineno
 
-  cur_tok.AdjustNewlinesBefore(cur_lineno - prev_lineno)
+  if prev_tok.value.endswith('\\'):
+    prev_lineno = prev_lineno + prev_tok.value.count('\n')
+
+  required_newlines = cur_lineno - prev_lineno
+
+  if lines and (cur_lineno in lines or prev_lineno in lines):
+    desired_newlines = cur_tok.whitespace_prefix.count('\n')
+    whitespace_lines = range(prev_lineno + 1, cur_lineno)
+    deletable_lines = len(lines.intersection(whitespace_lines))
+    required_newlines = max(required_newlines - deletable_lines,
+                            desired_newlines)
+
+  cur_tok.AdjustNewlinesBefore(required_newlines)
 
 
 def _RetainVerticalSpacingBeforeComments(uwline):
@@ -214,11 +234,19 @@ def _CanPlaceOnSingleLine(uwline):
     True if the line can or should be added to a single line. False otherwise.
   """
   indent_amt = style.Get('INDENT_WIDTH') * uwline.depth
-  return (uwline.last.total_length + indent_amt <= style.Get('COLUMN_LIMIT') and
-          not any(tok.is_comment for tok in uwline.tokens[:-1]))
+  last = uwline.last
+  last_index = -1
+  if last.is_pylint_comment:
+    last = last.previous_token
+    last_index = -2
+  if last is None:
+    return True
+  return (last.total_length + indent_amt <= style.Get('COLUMN_LIMIT') and
+          not any(tok.is_comment for tok in uwline.tokens[:last_index]))
 
 
 def _FormatFinalLines(final_lines, verify):
+  """Compose the final output from the finalized lines."""
   formatted_code = []
   for line in final_lines:
     formatted_line = []
@@ -230,7 +258,7 @@ def _FormatFinalLines(final_lines, verify):
         if (not tok.next_token.whitespace_prefix.startswith('\n') and
             not tok.next_token.whitespace_prefix.startswith(' ')):
           if (tok.previous_token.value == ':' or
-              tok.next_token.value not in frozenset(',}])')):
+              tok.next_token.value not in ',}])'):
             formatted_line.append(' ')
 
     formatted_code.append(''.join(formatted_line))
@@ -259,8 +287,9 @@ class _StateNode(object):
     self.previous = previous
 
   def __repr__(self):  # pragma: no cover
-    return 'StateNode(state=[\n{0}\n], newline={1})'.format(self.state,
-                                                            self.newline)
+    return 'StateNode(state=[\n{0}\n], newline={1})'.format(
+        self.state, self.newline)
+
 
 # A tuple of (penalty, count) that is used to prioritize the BFS. In case of
 # equal penalties, we prefer states that were inserted first. During state
@@ -270,8 +299,8 @@ _OrderedPenalty = collections.namedtuple('OrderedPenalty', ['penalty', 'count'])
 
 # An item in the prioritized BFS search queue. The 'StateNode's 'state' has
 # the given '_OrderedPenalty'.
-_QueueItem = collections.namedtuple('QueueItem', ['ordered_penalty',
-                                                  'state_node'])
+_QueueItem = collections.namedtuple('QueueItem',
+                                    ['ordered_penalty', 'state_node'])
 
 
 def _AnalyzeSolutionSpace(initial_state):
@@ -298,7 +327,6 @@ def _AnalyzeSolutionSpace(initial_state):
   heapq.heappush(p_queue, _QueueItem(_OrderedPenalty(0, count), node))
 
   count += 1
-  prev_penalty = 0
   while p_queue:
     item = p_queue[0]
     penalty = item.ordered_penalty.penalty
@@ -313,7 +341,6 @@ def _AnalyzeSolutionSpace(initial_state):
     if node.state in seen:
       continue
 
-    prev_penalty = penalty
     seen.add(node.state)
 
     # FIXME(morbo): Add a 'decision' element?
@@ -346,18 +373,17 @@ def _AddNextStateToQueue(penalty, previous_node, newline, count, p_queue):
   Returns:
     The updated number of elements in the queue.
   """
-  if newline and not previous_node.state.CanSplit():
+  must_split = previous_node.state.MustSplit()
+  if newline and not previous_node.state.CanSplit(must_split):
     # Don't add a newline if the token cannot be split.
     return count
-  must_split = previous_node.state.MustSplit()
   if not newline and must_split:
     # Don't add a token we must split but where we aren't splitting.
     return count
 
   node = _StateNode(previous_node.state, newline, previous_node)
-  penalty += node.state.AddTokenToState(newline=newline,
-                                        dry_run=True,
-                                        must_split=must_split)
+  penalty += node.state.AddTokenToState(
+      newline=newline, dry_run=True, must_split=must_split)
   heapq.heappush(p_queue, _QueueItem(_OrderedPenalty(penalty, count), node))
   return count + 1
 
@@ -434,14 +460,16 @@ def _CalculateNumberOfNewlines(first_token, indent_depth, prev_uwline,
     return 0
 
   if first_token.is_docstring:
+    if (prev_uwline.first.value == 'class' and
+        style.Get('BLANK_LINE_BEFORE_CLASS_DOCSTRING')):
+      # Enforce a blank line before a class's docstring.
+      return ONE_BLANK_LINE
     # The docstring shouldn't have a newline before it.
-    # TODO(morbo): Add a knob to adjust this.
     return NO_BLANK_LINES
 
   prev_last_token = prev_uwline.last
   if prev_last_token.is_docstring:
-    if (not indent_depth and
-        first_token.value in frozenset({'class', 'def', 'async'})):
+    if (not indent_depth and first_token.value in {'class', 'def', 'async'}):
       # Separate a class or function from the module-level docstring with two
       # blank lines.
       return TWO_BLANK_LINES
@@ -451,13 +479,14 @@ def _CalculateNumberOfNewlines(first_token, indent_depth, prev_uwline,
     else:
       return ONE_BLANK_LINE
 
-  if first_token.value in frozenset({'class', 'def', '@'}):
+  if first_token.value in {'class', 'def', 'async', '@'}:
     # TODO(morbo): This can go once the blank line calculator is more
     # sophisticated.
     if not indent_depth:
       # This is a top-level class or function.
       is_inline_comment = prev_last_token.whitespace_prefix.count('\n') == 0
-      if prev_last_token.is_comment and not is_inline_comment:
+      if (not prev_uwline.disable and prev_last_token.is_comment and
+          not is_inline_comment):
         # This token follows a non-inline comment.
         if _NoBlankLinesBeforeCurrentToken(prev_last_token.value, first_token,
                                            prev_last_token):
@@ -473,11 +502,10 @@ def _CalculateNumberOfNewlines(first_token, indent_depth, prev_uwline,
           else:
             prev_last_token.AdjustNewlinesBefore(TWO_BLANK_LINES)
           if first_token.newlines is not None:
-            pytree_utils.SetNodeAnnotation(first_token.node,
-                                           pytree_utils.Annotation.NEWLINES,
-                                           None)
+            pytree_utils.SetNodeAnnotation(
+                first_token.node, pytree_utils.Annotation.NEWLINES, None)
           return NO_BLANK_LINES
-    elif prev_uwline.first.value in frozenset({'class', 'def'}):
+    elif prev_uwline.first.value in {'class', 'def', 'async'}:
       if not style.Get('BLANK_LINE_BEFORE_NESTED_CLASS_OR_DEF'):
         pytree_utils.SetNodeAnnotation(first_token.node,
                                        pytree_utils.Annotation.NEWLINES, None)
@@ -521,9 +549,8 @@ def _SingleOrMergedLines(uwlines):
         if uwlines[index].lineno != uwline.lineno:
           break
         if uwline.last.value != ':':
-          leaf = pytree.Leaf(type=token.SEMI,
-                             value=';',
-                             context=('', (uwline.lineno, column)))
+          leaf = pytree.Leaf(
+              type=token.SEMI, value=';', context=('', (uwline.lineno, column)))
           uwline.AppendToken(format_token.FormatToken(leaf))
         for tok in uwlines[index].tokens:
           uwline.AppendToken(tok)

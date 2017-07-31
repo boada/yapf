@@ -1,4 +1,4 @@
-# Copyright 2015-2016 Google Inc. All Rights Reserved.
+# Copyright 2015-2017 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -66,7 +66,7 @@ def _NormalizeCode(code):
       break
   code = '\n'.join(lines[i:]) + '\n'
 
-  if re.match(r'(if|while|for|with|def|class)\b', code):
+  if re.match(r'(if|while|for|with|def|class|async|await)\b', code):
     code += '\n    pass'
   elif re.match(r'(elif|else)\b', code):
     try:

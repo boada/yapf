@@ -2,6 +2,231 @@
 # All notable changes to this project will be documented in this file.
 # This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.16.4] Unreleased
+### Changed
+- Adjust blank lines on formatting boundaries when using the `--lines` option.
+
+## [0.16.3] 2017-07-13
+### Changed
+- Add filename information to a ParseError excetion.
+### Fixed
+- A token that ends in a continuation marker may have more than one newline in
+  it, thus changing its "lineno" value. This can happen if multiple
+  continuation markers are used with no intervening tokens. Adjust the line
+  number to account for the lines covered by those markers.
+- Make sure to split after a comment even for "pseudo" parentheses.
+
+## [0.16.2] 2017-05-19
+### Fixed
+- Treat expansion operators ('*', '**') in a similar way to function calls to
+  avoid splitting directly after the opening parenthesis.
+- Increase the penalty for splitting after the start of a tuple.
+- Increase penalty for excess characters.
+- Check that we have enough children before trying to access them all.
+- Remove trailing whitespaces from comments.
+- Split before a function call in a list if the full list isn't able to fit on
+  a single line.
+- Trying not to split around the '=' of a named assign.
+- Changed split before the first argument behavior to ignore compound
+  statements like if and while, but not function declarations.
+- Changed coalesce brackets not to line split before closing bracket.
+
+## [0.16.1] 2017-03-22
+### Changed
+- Improved performance of cloning the format decision state object. This
+  improved the time in one *large* case from 273.485s to 234.652s.
+- Relax the requirement that a named argument needs to be on one line. Going
+  over the column limit is more of an issue to pylint than putting named args
+  on multiple lines.
+- Don't make splitting penalty decisions based on the original formatting. This
+  can and does lead to non-stable formatting, where yapf will reformat the same
+  code in different ways.
+### Fixed
+- Ensure splitting of arguments if there's a named assign present.
+- Prefer to coalesce opening brackets if it's not at the beginning of a
+  function call.
+- Prefer not to squish all of the elements in a function call over to the
+  right-hand side. Split the arguments instead.
+- We need to split a dictionary value if the first element is a comment anyway,
+  so don't force the split here. It's forced elsewhere.
+- Ensure tabs are used for continued indentation when USE_TABS is True.
+
+## [0.16.0] 2017-02-05
+### Added
+- The `EACH_DICT_ENTRY_ON_SEPARATE_LINE` knob indicates that each dictionary
+  entry should be in separate lines if the full dictionary isn't able to fit on
+  a single line.
+- The `SPLIT_BEFORE_DICT_SET_GENERATOR` knob splits before the `for` part of a
+  dictionary/set generator.
+- The `BLANK_LINE_BEFORE_CLASS_DOCSTRING` knob adds a blank line before a
+  class's docstring.
+- The `ALLOW_MULTILINE_DICTIONARY_KEYS` knob allows dictionary keys to span
+  more than one line.
+### Fixed
+- Split before all entries in a dict/set or list maker when comma-terminated,
+  even if there's only one entry.
+- Will now try to set O_BINARY mode on stdout under Windows and Python 2.
+- Avoid unneeded newline transformation when writing formatted code to
+  output on (affects only Python 2)
+
+## [0.15.2] 2017-01-29
+### Fixed
+- Don't perform a global split when a named assign is part of a function call
+  which itself is an argument to a function call. I.e., don't cause 'a' to
+  split here:
+
+      func(a, b, c, d(x, y, z=42))
+- Allow splitting inside a subscript if it's a logical or bitwise operating.
+  This should keep the subscript mostly contiguous otherwise.
+
+## [0.15.1] 2017-01-21
+### Fixed
+- Don't insert a space between a type hint and the '=' sign.
+- The '@' operator can be used in Python 3 for matrix multiplication. Give the
+  '@' in the decorator a DECORATOR subtype to distinguish it.
+- Encourage the formatter to split at the beginning of an argument list instead
+  of in the middle. Especially if the middle is an empty parameter list. This
+  adjusts the affinity of binary and comparison operators. In particular, the
+  "not in" and other such operators don't want to have a split after it (or
+  before it) if at all possible.
+
+## [0.15.0] 2017-01-12
+### Added
+- Keep type annotations intact as much as possible. Don't try to split the over
+  mutliple lines.
+### Fixed
+- When determining if each element in a dictionary can fit on a single line, we
+  are skipping dictionary entries. However, we need to ignore comments in our
+  calculations and implicitly concatenated strings, which are already placed on
+  separate lines.
+- Allow text before a "pylint" comment.
+- Also allow text before a "yapf: (disable|enable)" comment.
+
+## [0.14.0] 2016-11-21
+### Added
+- formatting can be run in parallel using the "-p" / "--parallel" flags.
+### Fixed
+- "not in" and "is not" should be subtyped as binary operators.
+- A non-Node dictionary value may have a comment before it. In those cases, we
+  want to avoid encompassing only the comment in pseudo parens. So we include
+  the actual value as well.
+- Adjust calculation so that pseudo-parentheses don't count towards the total
+  line length.
+- Don't count a dictionary entry as not fitting on a single line in a
+  dictionary.
+- Don't count pseudo-parentheses in the length of the line.
+
+## [0.13.2] 2016-10-22
+### Fixed
+- REGRESSION: A comment may have a prefix with newlines in it. When calculating
+  the prefix indent, we cannot take the newlines into account. Otherwise, the
+  comment will be misplaced causing the code to fail.
+
+## [0.13.1] 2016-10-17
+### Fixed
+- Correct emitting a diff that was accidentally removed.
+
+## [0.13.0] 2016-10-16
+### Added
+- Added support to retain the original line endings of the source code.
+
+### Fixed
+- Functions or classes with comments before them were reformatting the comments
+  even if the code was supposed to be ignored by the formatter. We now don't
+  adjust the whitespace before a function's comment if the comment is a
+  "disabled" line. We also don't count "# yapf: {disable|enable}" as a disabled
+  line, which seems logical.
+- It's not really more readable to split before a dictionary value if it's part
+  of a dictionary comprehension.
+- Enforce two blank lines after a function or class definition, even before a
+  comment. (But not between a decorator and a comment.) This is related to PEP8
+  error E305.
+- Remove O(n^2) algorithm from the line disabling logic.
+
+## [0.12.2] 2016-10-09
+### Fixed
+- If `style.SetGlobalStyle(<create pre-defined style>)` was called and then
+  `yapf_api.FormatCode` was called, the style set by the first call would be
+  lost, because it would return the style created by `DEFAULT_STYLE_FACTORY`,
+  which is set to PEP8 by default. Fix this by making the first call set which
+  factory we call as the "default" style.
+- Don't force a split before non-function call arguments.
+- A dictionary being used as an argument to a function call and which can exist
+  on a single line shouldn't be split.
+- Don't rely upon the original line break to determine if we should split
+  before the elements in a container. Especially split if there's a comment in
+  the container.
+- Don't add spaces between star and args in a lambda expression.
+- If a nested data structure terminates in a comma, then split before the first
+  element, but only if there's more than one element in the list.
+
+## [0.12.1] 2016-10-02
+### Changed
+- Dictionary values will be placed on the same line as the key if *all* of the
+  elements in the dictionary can be placed on one line. Otherwise, the
+  dictionary values will be placed on the next line.
+
+### Fixed
+- Prefer to split before a terminating r-paren in an argument list if the line
+  would otherwise go over the column limit.
+- Split before the first key in a dictionary if the dictionary cannot fit on a
+  single line.
+- Don't count "pylint" comments when determining if the line goes over the
+  column limit.
+- Don't count the argument list of a lambda as a named assign in a function
+  call.
+
+## [0.12.0] 2016-09-25
+### Added
+- Support formatting of typed names. Typed names are formatted a similar way to
+  how named arguments are formatted, except that there's a space after the
+  colon.
+- Add a knob, 'SPACES_AROUND_DEFAULT_OR_NAMED_ASSIGN', to allow adding spaces
+  around the assign operator on default or named assigns.
+
+## Changed
+- Turn "verification" off by default for external APIs.
+- If a function call in an argument list won't fit on the current line but will
+  fit on a line by itself, then split before the call so that it won't be split
+  up unnecessarily.
+
+## Fixed
+- Don't add space after power operator if the next operator's a unary operator.
+
+## [0.11.1] 2016-08-17
+### Changed
+- Issue #228: Return exit code 0 on success, regardless of whether files were
+  changed.  (Previously, 0 meant success with no files
+  modified, and 2 meant success with at least one file modified.)
+
+### Fixed
+- Enforce splitting each element in a dictionary if comma terminated.
+- It's okay to split in the middle of a dotted name if the whole expression is
+  going to go over the column limit.
+- Asynchronous functions were going missing if they were preceded by a comment
+  (a what? exactly). The asynchronous function processing wasn't taking the
+  comment into account and thus skipping the whole function.
+- The splitting of arguments when comma terminated had a conflict. The split
+  penalty of the closing bracket was set to the maximum, but it shouldn't be if
+  the closing bracket is preceded by a comma.
+
+## [0.11.0] 2016-07-17
+### Added
+- The COALESCE_BRACKETS knob prevents splitting consecutive brackets when
+  DEDENT_CLOSING_BRACKETS is set.
+- Don't count "pylint" directives as exceeding the column limit.
+
+### Changed
+- We split all of the arguments to a function call if there's a named argument.
+  In this case, we want to split after the opening bracket too. This makes
+  things look a bit better.
+
+### Fixed
+- When retaining format of a multiline string with Chromium style, make sure
+  that the multiline string doesn't mess up where the following comma ends up.
+- Correct for when 'lib2to3' smooshes comments together into the same DEDENT
+  node.
+
 ## [0.10.0] 2016-06-14
 ### Added
 - Add a knob, 'USE_TABS', to allow using tabs for indentation.

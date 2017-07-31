@@ -1,4 +1,4 @@
-# Copyright 2015-2016 Google Inc. All Rights Reserved.
+# Copyright 2015-2017 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ This is a thin wrapper around a pytree.Leaf node.
 import keyword
 import re
 
-from lib2to3 import pytree
 from lib2to3.pgen2 import token
 
 from yapf.yapflib import py3compat
@@ -41,15 +40,19 @@ class Subtype(object):
   SUBSCRIPT_COLON = 3
   SUBSCRIPT_BRACKET = 4
   DEFAULT_OR_NAMED_ASSIGN = 5
-  VARARGS_STAR = 6
-  KWARGS_STAR_STAR = 7
-  ASSIGN_OPERATOR = 8
-  DICTIONARY_KEY = 9
-  DICTIONARY_VALUE = 10
-  DICT_SET_GENERATOR = 11
-  COMP_FOR = 12
-  COMP_IF = 13
-  DEFAULT_OR_NAMED_ASSIGN_ARG_LIST = 14
+  DEFAULT_OR_NAMED_ASSIGN_ARG_LIST = 6
+  VARARGS_LIST = 7
+  VARARGS_STAR = 8
+  KWARGS_STAR_STAR = 9
+  ASSIGN_OPERATOR = 10
+  DICTIONARY_KEY = 11
+  DICTIONARY_KEY_PART = 12
+  DICTIONARY_VALUE = 13
+  DICT_SET_GENERATOR = 14
+  COMP_FOR = 15
+  COMP_IF = 16
+  FUNC_DEF = 17
+  DECORATOR = 18
 
 
 class FormatToken(object):
@@ -101,6 +104,11 @@ class FormatToken(object):
     else:
       self.spaces_required_before = 0
 
+    if self.is_continuation:
+      self.value = self.node.value.rstrip()
+    else:
+      self.value = self.node.value
+
   def AddWhitespacePrefix(self, newlines_before, spaces=0, indent_level=0):
     """Register a token's whitespace prefix.
 
@@ -112,12 +120,16 @@ class FormatToken(object):
       indent_level: (int) The indentation level.
     """
     indent_char = '\t' if style.Get('USE_TABS') else ' '
-    indent_before = (
-        indent_char * indent_level * style.Get('INDENT_WIDTH') + ' ' * spaces)
+    token_indent_char = indent_char if newlines_before > 0 else ' '
+    indent_before = (indent_char * indent_level * style.Get('INDENT_WIDTH') +
+                     token_indent_char * spaces)
 
     if self.is_comment:
       comment_lines = [s.lstrip() for s in self.value.splitlines()]
       self.node.value = ('\n' + indent_before).join(comment_lines)
+
+      # Update our own value since we are changing node value
+      self.value = self.node.value
 
     if not self.whitespace_prefix:
       self.whitespace_prefix = (
@@ -142,7 +154,7 @@ class FormatToken(object):
       prev_lineno += previous.value.count('\n')
 
     if (cur_lineno != prev_lineno or
-        (previous.is_pseudo_paren and
+        (previous.is_pseudo_paren and previous.value != ')' and
          cur_lineno != previous.previous_token.lineno)):
       self.spaces_required_before = (
           self.column - first_column + depth * style.Get('INDENT_WIDTH'))
@@ -174,18 +186,11 @@ class FormatToken(object):
     return msg
 
   @property
-  def value(self):
-    if self.is_continuation:
-      return self.node.value.rstrip()
-    return self.node.value
-
-  @property
   @py3compat.lru_cache()
   def node_split_penalty(self):
     """Split penalty attached to the pytree node of this token."""
-    return pytree_utils.GetNodeAnnotation(self.node,
-                                          pytree_utils.Annotation.SPLIT_PENALTY,
-                                          default=0)
+    return pytree_utils.GetNodeAnnotation(
+        self.node, pytree_utils.Annotation.SPLIT_PENALTY, default=0)
 
   @property
   def newlines(self):
@@ -271,3 +276,8 @@ class FormatToken(object):
   @py3compat.lru_cache()
   def is_pseudo_paren(self):
     return hasattr(self.node, 'is_pseudo') and self.node.is_pseudo
+
+  @property
+  def is_pylint_comment(self):
+    return self.is_comment and re.match(r'#.*\bpylint:\s*(disable|enable)=',
+                                        self.value)

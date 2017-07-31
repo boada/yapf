@@ -1,4 +1,4 @@
-# Copyright 2015-2016 Google Inc. All Rights Reserved.
+# Copyright 2015-2017 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -46,16 +46,16 @@ class _NodeNameCollector(pytree_visitor.PyTreeVisitor):
     self.DefaultLeafVisit(leaf)
 
 
-_VISITOR_TEST_SIMPLE_CODE = r'''
+_VISITOR_TEST_SIMPLE_CODE = r"""
 foo = bar
 baz = x
-'''
+"""
 
-_VISITOR_TEST_NESTED_CODE = r'''
+_VISITOR_TEST_NESTED_CODE = r"""
 if x:
   if y:
     return z
-'''
+"""
 
 
 class PytreeVisitorTest(unittest.TestCase):
@@ -68,7 +68,8 @@ class PytreeVisitorTest(unittest.TestCase):
         'file_input',
         'simple_stmt', 'expr_stmt', 'NAME', 'EQUAL', 'NAME', 'NEWLINE',
         'simple_stmt', 'expr_stmt', 'NAME', 'EQUAL', 'NAME', 'NEWLINE',
-        'ENDMARKER']  # yapf: disable
+        'ENDMARKER',
+    ]  # yapf: disable
     self.assertEqual(expected_names, collector.all_node_names)
 
     expected_name_node_values = ['foo', 'bar', 'baz', 'x']
@@ -84,7 +85,8 @@ class PytreeVisitorTest(unittest.TestCase):
         'suite', 'NEWLINE',
         'INDENT', 'if_stmt', 'NAME', 'NAME', 'COLON', 'suite', 'NEWLINE',
         'INDENT', 'simple_stmt', 'return_stmt', 'NAME', 'NAME', 'NEWLINE',
-        'DEDENT', 'DEDENT', 'ENDMARKER']  # yapf: disable
+        'DEDENT', 'DEDENT', 'ENDMARKER',
+    ]  # yapf: disable
     self.assertEqual(expected_names, collector.all_node_names)
 
     expected_name_node_values = ['if', 'x', 'if', 'y', 'return', 'z']

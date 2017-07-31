@@ -1,4 +1,4 @@
-# Copyright 2015-2016 Google Inc. All Rights Reserved.
+# Copyright 2015-2017 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -91,8 +91,8 @@ class InsertNodesBeforeAfterTest(unittest.TestCase):
     lpar2 = pytree.Leaf(token.LPAR, '(')
     simple_stmt = pytree.Node(_GRAMMAR_SYMBOL2NUMBER['simple_stmt'],
                               [pytree.Leaf(token.NAME, 'foo')])
-    return pytree.Node(_GRAMMAR_SYMBOL2NUMBER['suite'], [lpar1, lpar2,
-                                                         simple_stmt])
+    return pytree.Node(_GRAMMAR_SYMBOL2NUMBER['suite'],
+                       [lpar1, lpar2, simple_stmt])
 
   def _MakeNewNodeRPAR(self):
     return pytree.Leaf(token.RPAR, ')')

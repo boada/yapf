@@ -1,4 +1,4 @@
-# Copyright 2015-2016 Google Inc. All Rights Reserved.
+# Copyright 2015-2017 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,6 +36,7 @@ import difflib
 import re
 import sys
 
+from lib2to3.pgen2 import parse
 from lib2to3.pgen2 import tokenize
 
 from yapf.yapflib import blank_line_calculator
@@ -55,7 +56,7 @@ def FormatFile(filename,
                style_config=None,
                lines=None,
                print_diff=False,
-               verify=True,
+               verify=False,
                in_place=False,
                logger=None):
   """Format a single Python file and return the formatted code.
@@ -80,13 +81,17 @@ def FormatFile(filename,
   if in_place and print_diff:
     raise ValueError('Cannot pass both in_place and print_diff.')
 
-  original_source, encoding = ReadFile(filename, logger)
-  reformatted_source, changed = FormatCode(original_source,
-                                           style_config=style_config,
-                                           filename=filename,
-                                           lines=lines,
-                                           print_diff=print_diff,
-                                           verify=verify)
+  original_source, newline, encoding = ReadFile(filename, logger)
+  reformatted_source, changed = FormatCode(
+      original_source,
+      style_config=style_config,
+      filename=filename,
+      lines=lines,
+      print_diff=print_diff,
+      verify=verify)
+  if reformatted_source.rstrip('\n'):
+    lines = reformatted_source.rstrip('\n').split('\n')
+    reformatted_source = newline.join(line for line in lines) + newline
   if in_place:
     if original_source and original_source != reformatted_source:
       file_resources.WriteReformattedCode(filename, reformatted_source,
@@ -101,7 +106,7 @@ def FormatCode(unformatted_source,
                style_config=None,
                lines=None,
                print_diff=False,
-               verify=True):
+               verify=False):
   """Format a string of Python code.
 
   This provides an alternative entry point to YAPF.
@@ -119,7 +124,11 @@ def FormatCode(unformatted_source,
   style.SetGlobalStyle(style.CreateStyleFromConfig(style_config))
   if not unformatted_source.endswith('\n'):
     unformatted_source += '\n'
-  tree = pytree_utils.ParseCodeToTree(unformatted_source)
+
+  try:
+    tree = pytree_utils.ParseCodeToTree(unformatted_source)
+  except parse.ParseError as e:
+    raise parse.ParseError(filename + ': ' + e.message)
 
   # Run passes on the tree, modifying it in place.
   comment_splicer.SpliceComments(tree)
@@ -132,15 +141,15 @@ def FormatCode(unformatted_source,
   for uwl in uwlines:
     uwl.CalculateFormattingInformation()
 
+  lines = _LineRangesToSet(lines)
   _MarkLinesToFormat(uwlines, lines)
-  reformatted_source = reformatter.Reformat(uwlines, verify)
+  reformatted_source = reformatter.Reformat(uwlines, verify, lines)
 
   if unformatted_source == reformatted_source:
     return '' if print_diff else reformatted_source, False
 
-  code_diff = _GetUnifiedDiff(unformatted_source,
-                              reformatted_source,
-                              filename=filename)
+  code_diff = _GetUnifiedDiff(
+      unformatted_source, reformatted_source, filename=filename)
 
   if print_diff:
     return code_diff, code_diff != ''
@@ -184,46 +193,57 @@ def ReadFile(filename, logger=None):
     raise
 
   try:
-    with py3compat.open_with_encoding(filename,
-                                      mode='r',
-                                      encoding=encoding) as fd:
-      source = fd.read()
-    return source, encoding
+    # Preserves line endings.
+    with py3compat.open_with_encoding(
+        filename, mode='r', encoding=encoding, newline='') as fd:
+      lines = fd.readlines()
+
+    line_ending = file_resources.LineEnding(lines)
+    source = '\n'.join(line.rstrip('\r\n') for line in lines) + '\n'
+    return source, line_ending, encoding
   except IOError as err:  # pragma: no cover
     if logger:
       logger(err)
     raise
 
 
-DISABLE_PATTERN = r'^#+ +yapf: *disable$'
-ENABLE_PATTERN = r'^#+ +yapf: *enable$'
+DISABLE_PATTERN = r'^#.*\byapf:\s*disable\b'
+ENABLE_PATTERN = r'^#.*\byapf:\s*enable\b'
+
+
+def _LineRangesToSet(line_ranges):
+  """Return a set of lines in the range."""
+
+  if line_ranges is None:
+    return None
+
+  line_set = set()
+  for low, high in sorted(line_ranges):
+    line_set.update(range(low, high + 1))
+
+  return line_set
 
 
 def _MarkLinesToFormat(uwlines, lines):
   """Skip sections of code that we shouldn't reformat."""
   if lines:
     for uwline in uwlines:
-      uwline.disable = True
+      uwline.disable = not (
+          lines.intersection(range(uwline.lineno, uwline.last.lineno + 1)))
 
-    for start, end in sorted(lines):
-      for uwline in uwlines:
-        if uwline.lineno > end:
-          break
-        if uwline.lineno >= start:
-          uwline.disable = False
-        elif uwline.last.lineno >= start:
-          uwline.disable = False
-
+  # Now go through the lines and disable any lines explicitly marked as
+  # disabled.
   index = 0
   while index < len(uwlines):
     uwline = uwlines[index]
     if uwline.is_comment:
       if _DisableYAPF(uwline.first.value.strip()):
+        index += 1
         while index < len(uwlines):
           uwline = uwlines[index]
-          uwline.disable = True
           if uwline.is_comment and _EnableYAPF(uwline.first.value.strip()):
             break
+          uwline.disable = True
           index += 1
     elif re.search(DISABLE_PATTERN, uwline.last.value.strip(), re.IGNORECASE):
       uwline.disable = True
@@ -231,17 +251,15 @@ def _MarkLinesToFormat(uwlines, lines):
 
 
 def _DisableYAPF(line):
-  return (re.search(DISABLE_PATTERN, line.split('\n')[0].strip(),
-                    re.IGNORECASE) or re.search(DISABLE_PATTERN,
-                                                line.split('\n')[-1].strip(),
-                                                re.IGNORECASE))
+  return (
+      re.search(DISABLE_PATTERN, line.split('\n')[0].strip(), re.IGNORECASE) or
+      re.search(DISABLE_PATTERN, line.split('\n')[-1].strip(), re.IGNORECASE))
 
 
 def _EnableYAPF(line):
-  return (re.search(ENABLE_PATTERN, line.split('\n')[0].strip(),
-                    re.IGNORECASE) or re.search(ENABLE_PATTERN,
-                                                line.split('\n')[-1].strip(),
-                                                re.IGNORECASE))
+  return (
+      re.search(ENABLE_PATTERN, line.split('\n')[0].strip(), re.IGNORECASE) or
+      re.search(ENABLE_PATTERN, line.split('\n')[-1].strip(), re.IGNORECASE))
 
 
 def _GetUnifiedDiff(before, after, filename='code'):
@@ -257,10 +275,12 @@ def _GetUnifiedDiff(before, after, filename='code'):
   """
   before = before.splitlines()
   after = after.splitlines()
-  return '\n'.join(difflib.unified_diff(before,
-                                        after,
-                                        filename,
-                                        filename,
-                                        '(original)',
-                                        '(reformatted)',
-                                        lineterm='')) + '\n'
+  return '\n'.join(
+      difflib.unified_diff(
+          before,
+          after,
+          filename,
+          filename,
+          '(original)',
+          '(reformatted)',
+          lineterm='')) + '\n'

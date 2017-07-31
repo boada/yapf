@@ -1,4 +1,4 @@
-# Copyright 2015-2016 Google Inc. All Rights Reserved.
+# Copyright 2015-2017 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,37 +16,17 @@
 import textwrap
 import unittest
 
-from yapf.yapflib import comment_splicer
 from yapf.yapflib import line_joiner
-from yapf.yapflib import pytree_unwrapper
-from yapf.yapflib import pytree_utils
 from yapf.yapflib import style
 
+from yapftests import yapf_test_helper
 
-class LineJoinerTest(unittest.TestCase):
+
+class LineJoinerTest(yapf_test_helper.YAPFTest):
 
   @classmethod
   def setUpClass(cls):
     style.SetGlobalStyle(style.CreatePEP8Style())
-
-  def _ParseAndUnwrap(self, code):
-    """Produces unwrapped lines from the given code.
-
-    Parses the code into a tree, performs comment splicing and runs the
-    unwrapper.
-
-    Arguments:
-      code: code to parse as a string
-
-    Returns:
-      List of unwrapped lines.
-    """
-    tree = pytree_utils.ParseCodeToTree(code)
-    comment_splicer.SpliceComments(tree)
-    uwlines = pytree_unwrapper.UnwrapPyTree(tree)
-    for uwl in uwlines:
-      uwl.CalculateFormattingInformation()
-    return uwlines
 
   def _CheckLineJoining(self, code, join_lines):
     """Check that the given UnwrappedLines are joined as expected.
@@ -55,8 +35,8 @@ class LineJoinerTest(unittest.TestCase):
       code: The code to check to see if we can join it.
       join_lines: True if we expect the lines to be joined.
     """
-    uwlines = self._ParseAndUnwrap(code)
-    self.assertEqual(line_joiner.CanMergeMultipleLines(uwlines), join_lines)
+    uwlines = yapf_test_helper.ParseAndUnwrap(code)
+    self.assertCodeEqual(line_joiner.CanMergeMultipleLines(uwlines), join_lines)
 
   def testSimpleSingleLineStatement(self):
     code = textwrap.dedent(u"""\

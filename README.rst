@@ -28,7 +28,7 @@ Daniel Jasper. In essence, the algorithm takes the code and reformats it to the
 best formatting that conforms to the style guide, even if the original code
 didn't violate the style guide. The idea is also similar to the 'gofmt' tool for
 the Go programming language: end all holy wars about formatting - if the whole
-code base of a project is simply piped through YAPF whenever modifications are
+codebase of a project is simply piped through YAPF whenever modifications are
 made, the style remains consistent throughout the project and there's no point
 arguing about style in every code review.
 
@@ -49,9 +49,15 @@ Installation
 
 To install YAPF from PyPI:
 
-.. code-block:: shell
+.. code-block::
 
     $ pip install yapf
+
+(optional) If you are using Python 2.7 and want to enable multiprocessing:
+
+.. code-block::
+
+    $ pip install futures
 
 YAPF is still considered in "alpha" stage, and the released version may change
 often; therefore, the best way to keep up-to-date with the latest development
@@ -62,7 +68,7 @@ library, installation is not necessary. YAPF supports being run as a directory
 by the Python interpreter. If you cloned/unzipped YAPF into ``DIR``, it's
 possible to run:
 
-.. code-block:: shell
+.. code-block::
 
     $ PYTHONPATH=DIR python DIR/yapf [options] ...
 
@@ -83,7 +89,7 @@ Usage
 Options::
 
     usage: yapf [-h] [-v] [-d | -i] [-r | -l START-END] [-e PATTERN]
-                [--style STYLE] [--style-help] [--no-local-style]
+                [--style STYLE] [--style-help] [--no-local-style] [-p]
                 [files [files ...]]
 
     Formatter for Python code.
@@ -109,6 +115,8 @@ Options::
                             directory for stdin)
       --style-help          show style settings and exit
       --no-local-style      don't search for local style definition (.style.yapf)
+      -p, --parallel        Run yapf in parallel when formatting multiple files.
+                            Requires concurrent.futures in Python 2.X
 
 
 Formatting style
@@ -125,7 +133,7 @@ file that specifies the desired style, or a dictionary of key/value pairs.
 The config file is a simple listing of (case-insensitive) ``key = value`` pairs
 with a ``[style]`` heading. For example:
 
-.. code-block:: guess
+.. code-block::
 
     [style]
     based_on_style = pep8
@@ -138,7 +146,7 @@ custom style is based on (think of it like subclassing).
 It's also possible to do the same on the command line with a dictionary. For
 example:
 
-.. code-block:: guess
+.. code-block::
 
     --style='{based_on_style: chromium, indent_width: 4}'
 
@@ -150,7 +158,7 @@ YAPF will search for the formatting style in the following manner:
 1. Specified on the command line
 2. In the `[style]` section of a `.style.yapf` file in either the current
    directory or one of its parent directories.
-3. In the `[yapf]` secionf of a `setup.cfg` file in either the current
+3. In the `[yapf]` section of a `setup.cfg` file in either the current
    directory or one of its parent directories.
 4. In the `~/.config/yapf/style` file in your home directory.
 
@@ -211,7 +219,7 @@ share several arguments which are described below:
 
 .. code-block:: python
 
-    >>> from yapf.yapf_api import FormatCode  # reformat a string of code
+    >>> from yapf.yapflib.yapf_api import FormatCode  # reformat a string of code
 
     >>> FormatCode("f ( a = 1, b = 2 )")
     'f(a=1, b=2)\n'
@@ -254,7 +262,7 @@ the diff, the default is ``<unknown>``.
 
 .. code-block:: python
 
-    >>> from yapf.yapf_api import FormatFile  # reformat a file
+    >>> from yapf.yapflib.yapf_api import FormatFile  # reformat a file
 
     >>> print(open("foo.py").read())  # contents of file
     a==b
@@ -282,6 +290,17 @@ Knobs
 ``ALLOW_MULTILINE_LAMBDAS``
     Allow lambdas to be formatted on more than one line.
 
+``ALLOW_MULTILINE_DICTIONARY_KEYS``
+    Allow dictionary keys to exist on multiple lines. For example:
+
+    .. code-block:: python
+
+        x = {
+            ('this is the first element of a tuple',
+             'this is the second element of a tuple'):
+                 value,
+        }
+
 ``BLANK_LINE_BEFORE_NESTED_CLASS_OR_DEF``
     Insert a blank line before a ``def`` or ``class`` immediately nested within
     another ``def`` or ``class``. For example:
@@ -292,6 +311,32 @@ Knobs
                            # <------ this blank line
             def method():
                 pass
+
+``BLANK_LINE_BEFORE_CLASS_DOCSTRING``
+    Insert a blank line before a class-level docstring.
+
+``COALESCE_BRACKETS``
+    Do not split consecutive brackets. Only relevant when
+    ``DEDENT_CLOSING_BRACKETS`` is set. For example:
+
+    .. code-block:: python
+
+        call_func_that_takes_a_dict(
+            {
+                'key1': 'value1',
+                'key2': 'value2',
+            }
+        )
+
+    would reformat to:
+
+    .. code-block:: python
+
+        call_func_that_takes_a_dict({
+            'key1': 'value1',
+            'key2': 'value2',
+        })
+
 
 ``COLUMN_LIMIT``
     The column limit (or max line-length)
@@ -319,6 +364,9 @@ Knobs
             end_ts=now(),
         )  # <--- this bracket is dedented and on a separate line
 
+``EACH_DICT_ENTRY_ON_SEPARATE_LINE``
+    Place each dictionary entry onto its own line.
+
 ``I18N_COMMENT``
     The regex for an internationalization comment. The presence of this comment
     stops reformatting of that line, because the comments are required to be
@@ -326,7 +374,7 @@ Knobs
 
 ``I18N_FUNCTION_CALL``
     The internationalization function call names. The presence of this function
-    stops reformattting on that line, because the string it has cannot be moved
+    stops reformatting on that line, because the string it has cannot be moved
     away from the i18n comment.
 
 ``INDENT_DICTIONARY_VALUE``
@@ -351,6 +399,10 @@ Knobs
 ``SPACES_AROUND_POWER_OPERATOR``
     Set to ``True`` to prefer using spaces around ``**``.
 
+``SPACES_AROUND_DEFAULT_OR_NAMED_ASSIGN``
+    Set to ``True`` to prefer spaces around the assignment operator for default
+    or keyword arguments.
+
 ``SPACES_BEFORE_COMMENT``
     The number of spaces required before a trailing comment.
 
@@ -363,6 +415,17 @@ Knobs
 ``SPLIT_BEFORE_BITWISE_OPERATOR``
     Set to ``True`` to prefer splitting before ``&``, ``|`` or ``^`` rather
     than after.
+
+``SPLIT_BEFORE_DICT_SET_GENERATOR``
+    Split before a dictionary or set generator (comp_for). For example, note
+    the split before the ``for``:
+
+    .. code-block:: python
+
+        foo = {
+            variable: 'Hello world, have a nice day!'
+            for variable in bar if variable != 42
+        }
 
 ``SPLIT_BEFORE_FIRST_ARGUMENT``
     If an argument / parameter list is going to be split, then split before the

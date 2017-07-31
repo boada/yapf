@@ -1,4 +1,4 @@
-# Copyright 2015-2016 Google Inc. All Rights Reserved.
+# Copyright 2015-2017 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,9 +24,9 @@ from yapf.yapflib import pytree_visitor
 from yapf.yapflib import split_penalty
 
 UNBREAKABLE = split_penalty.UNBREAKABLE
+VERY_STRONGLY_CONNECTED = split_penalty.VERY_STRONGLY_CONNECTED
 DOTTED_NAME = split_penalty.DOTTED_NAME
 STRONGLY_CONNECTED = split_penalty.STRONGLY_CONNECTED
-CONTIGUOUS_LIST = split_penalty.CONTIGUOUS_LIST
 
 
 class SplitPenaltyTest(unittest.TestCase):
@@ -85,7 +85,7 @@ class SplitPenaltyTest(unittest.TestCase):
         (')', STRONGLY_CONNECTED),
         (':', UNBREAKABLE),
         ('pass', None),
-    ])  # yapf: disable
+    ])
 
     # Test function definition with trailing comment.
     code = textwrap.dedent(r"""
@@ -101,7 +101,7 @@ class SplitPenaltyTest(unittest.TestCase):
         (')', STRONGLY_CONNECTED),
         (':', UNBREAKABLE),
         ('pass', None),
-    ])  # yapf: disable
+    ])
 
     # Test class definitions.
     code = textwrap.dedent(r"""
@@ -123,7 +123,7 @@ class SplitPenaltyTest(unittest.TestCase):
         (')', None),
         (':', UNBREAKABLE),
         ('pass', None),
-    ])  # yapf: disable
+    ])
 
     # Test lambda definitions.
     code = textwrap.dedent(r"""
@@ -137,7 +137,7 @@ class SplitPenaltyTest(unittest.TestCase):
         ('b', UNBREAKABLE),
         (':', UNBREAKABLE),
         ('None', UNBREAKABLE),
-    ])  # yapf: disable
+    ])
 
     # Test dotted names.
     code = textwrap.dedent(r"""
@@ -151,7 +151,7 @@ class SplitPenaltyTest(unittest.TestCase):
         ('b', UNBREAKABLE),
         ('.', UNBREAKABLE),
         ('c', UNBREAKABLE),
-    ])  # yapf: disable
+    ])
 
   def testStronglyConnected(self):
     # Test dictionary keys.
@@ -163,7 +163,9 @@ class SplitPenaltyTest(unittest.TestCase):
       """)
     tree = self._ParseAndComputePenalties(code)
     self._CheckPenalties(tree, [
-        ('a', None), ('=', None), ('{', None),
+        ('a', None),
+        ('=', None),
+        ('{', None),
         ("'x'", None),
         (':', STRONGLY_CONNECTED),
         ('42', None),
@@ -174,12 +176,12 @@ class SplitPenaltyTest(unittest.TestCase):
         ('a', UNBREAKABLE),
         (':', UNBREAKABLE),
         ('23', UNBREAKABLE),
-        (')', UNBREAKABLE),
+        (')', VERY_STRONGLY_CONNECTED),
         (':', STRONGLY_CONNECTED),
         ('37', None),
         (',', None),
         ('}', None),
-    ])  # yapf: disable
+    ])
 
     # Test list comprehension.
     code = textwrap.dedent(r"""
@@ -188,19 +190,19 @@ class SplitPenaltyTest(unittest.TestCase):
     tree = self._ParseAndComputePenalties(code)
     self._CheckPenalties(tree, [
         ('[', None),
-        ('a', STRONGLY_CONNECTED),
-        ('for', STRONGLY_CONNECTED),
+        ('a', None),
+        ('for', 0),
         ('a', STRONGLY_CONNECTED),
         ('in', STRONGLY_CONNECTED),
         ('foo', STRONGLY_CONNECTED),
-        ('if', STRONGLY_CONNECTED),
+        ('if', 0),
         ('a', STRONGLY_CONNECTED),
         ('.', UNBREAKABLE),
         ('x', DOTTED_NAME),
         ('==', STRONGLY_CONNECTED),
         ('37', STRONGLY_CONNECTED),
-        (']', STRONGLY_CONNECTED),
-    ])  # yapf: disable
+        (']', None),
+    ])
 
   def testFuncCalls(self):
     code = 'foo(1, 2, 3)\n'
@@ -208,12 +210,13 @@ class SplitPenaltyTest(unittest.TestCase):
     self._CheckPenalties(tree, [
         ('foo', None),
         ('(', UNBREAKABLE),
-        ('1', CONTIGUOUS_LIST),
-        (',', CONTIGUOUS_LIST),
-        ('2', CONTIGUOUS_LIST),
-        (',', CONTIGUOUS_LIST),
-        ('3', CONTIGUOUS_LIST),
-        (')', UNBREAKABLE)])  # yapf: disable
+        ('1', None),
+        (',', UNBREAKABLE),
+        ('2', None),
+        (',', UNBREAKABLE),
+        ('3', None),
+        (')', VERY_STRONGLY_CONNECTED),
+    ])
 
     # Now a method call, which has more than one trailer
     code = 'foo.bar.baz(1, 2, 3)\n'
@@ -221,16 +224,17 @@ class SplitPenaltyTest(unittest.TestCase):
     self._CheckPenalties(tree, [
         ('foo', None),
         ('.', UNBREAKABLE),
-        ('bar', UNBREAKABLE),
-        ('.', UNBREAKABLE),
-        ('baz', UNBREAKABLE),
-        ('(', UNBREAKABLE),
-        ('1', CONTIGUOUS_LIST),
-        (',', CONTIGUOUS_LIST),
-        ('2', CONTIGUOUS_LIST),
-        (',', CONTIGUOUS_LIST),
-        ('3', CONTIGUOUS_LIST),
-        (')', UNBREAKABLE)])  # yapf: disable
+        ('bar', DOTTED_NAME),
+        ('.', STRONGLY_CONNECTED),
+        ('baz', DOTTED_NAME),
+        ('(', STRONGLY_CONNECTED),
+        ('1', None),
+        (',', UNBREAKABLE),
+        ('2', None),
+        (',', UNBREAKABLE),
+        ('3', None),
+        (')', VERY_STRONGLY_CONNECTED),
+    ])
 
 
 if __name__ == '__main__':

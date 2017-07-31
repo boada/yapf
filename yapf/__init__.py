@@ -1,4 +1,4 @@
-# Copyright 2015-2016 Google Inc. All Rights Reserved.
+# Copyright 2015-2017 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ from yapf.yapflib import py3compat
 from yapf.yapflib import style
 from yapf.yapflib import yapf_api
 
-__version__ = '0.10.0'
+__version__ = '0.16.3'
 
 
 def main(argv):
@@ -55,26 +55,30 @@ def main(argv):
     YapfError: if none of the supplied files were Python files.
   """
   parser = argparse.ArgumentParser(description='Formatter for Python code.')
-  parser.add_argument('-v',
-                      '--version',
-                      action='store_true',
-                      help='show version number and exit')
+  parser.add_argument(
+      '-v',
+      '--version',
+      action='store_true',
+      help='show version number and exit')
 
   diff_inplace_group = parser.add_mutually_exclusive_group()
-  diff_inplace_group.add_argument('-d',
-                                  '--diff',
-                                  action='store_true',
-                                  help='print the diff for the fixed source')
-  diff_inplace_group.add_argument('-i',
-                                  '--in-place',
-                                  action='store_true',
-                                  help='make changes to files in place')
+  diff_inplace_group.add_argument(
+      '-d',
+      '--diff',
+      action='store_true',
+      help='print the diff for the fixed source')
+  diff_inplace_group.add_argument(
+      '-i',
+      '--in-place',
+      action='store_true',
+      help='make changes to files in place')
 
   lines_recursive_group = parser.add_mutually_exclusive_group()
-  lines_recursive_group.add_argument('-r',
-                                     '--recursive',
-                                     action='store_true',
-                                     help='run recursively over directories')
+  lines_recursive_group.add_argument(
+      '-r',
+      '--recursive',
+      action='store_true',
+      help='run recursively over directories')
   lines_recursive_group.add_argument(
       '-l',
       '--lines',
@@ -83,12 +87,13 @@ def main(argv):
       default=None,
       help='range of lines to reformat, one-based')
 
-  parser.add_argument('-e',
-                      '--exclude',
-                      metavar='PATTERN',
-                      action='append',
-                      default=None,
-                      help='patterns for files to exclude from formatting')
+  parser.add_argument(
+      '-e',
+      '--exclude',
+      metavar='PATTERN',
+      action='append',
+      default=None,
+      help='patterns for files to exclude from formatting')
   parser.add_argument(
       '--style',
       action='store',
@@ -97,15 +102,23 @@ def main(argv):
             'default is pep8 unless a %s or %s file located in one of the '
             'parent directories of the source file (or current directory for '
             'stdin)' % (style.LOCAL_STYLE, style.SETUP_CONFIG)))
-  parser.add_argument('--style-help',
-                      action='store_true',
-                      help=('show style settings and exit; this output can be '
-                            'saved to .style.yapf to make your settings '
-                            'permanent'))
-  parser.add_argument('--no-local-style',
-                      action='store_true',
-                      help="don't search for local style definition")
+  parser.add_argument(
+      '--style-help',
+      action='store_true',
+      help=('show style settings and exit; this output can be '
+            'saved to .style.yapf to make your settings '
+            'permanent'))
+  parser.add_argument(
+      '--no-local-style',
+      action='store_true',
+      help="don't search for local style definition")
   parser.add_argument('--verify', action='store_true', help=argparse.SUPPRESS)
+  parser.add_argument(
+      '-p',
+      '--parallel',
+      action='store_true',
+      help=('Run yapf in parallel when formatting multiple files. Requires '
+            'concurrent.futures in Python 2.X'))
 
   parser.add_argument('files', nargs='*')
   args = parser.parse_args(argv[1:])
@@ -119,8 +132,8 @@ def main(argv):
     print('[style]')
     for option, docstring in sorted(style.Help().items()):
       for line in docstring.splitlines():
-        print('#', line)
-      print(option, '=', style.Get(option), sep='')
+        print('#', line and ' ' or '', line, sep='')
+      print(option.lower(), '=', style.Get(option), sep='')
       print()
     return 0
 
@@ -144,30 +157,36 @@ def main(argv):
         original_source.append(py3compat.raw_input())
       except EOFError:
         break
+
     style_config = args.style
     if style_config is None and not args.no_local_style:
       style_config = file_resources.GetDefaultStyleForDir(os.getcwd())
-    reformatted_source, changed = yapf_api.FormatCode(
-        py3compat.unicode('\n'.join(original_source) + '\n'),
+
+    source = [line.rstrip() for line in original_source]
+    reformatted_source, _ = yapf_api.FormatCode(
+        py3compat.unicode('\n'.join(source) + '\n'),
         filename='<stdin>',
         style_config=style_config,
         lines=lines,
         verify=args.verify)
-    sys.stdout.write(reformatted_source)
-    return 2 if changed else 0
+    file_resources.WriteReformattedCode('<stdout>', reformatted_source)
+    return 0
 
   files = file_resources.GetCommandLineFiles(args.files, args.recursive,
                                              args.exclude)
   if not files:
     raise errors.YapfError('Input filenames did not match any python files')
-  changed = FormatFiles(files,
-                        lines,
-                        style_config=args.style,
-                        no_local_style=args.no_local_style,
-                        in_place=args.in_place,
-                        print_diff=args.diff,
-                        verify=args.verify)
-  return 2 if changed else 0
+
+  FormatFiles(
+      files,
+      lines,
+      style_config=args.style,
+      no_local_style=args.no_local_style,
+      in_place=args.in_place,
+      print_diff=args.diff,
+      verify=args.verify,
+      parallel=args.parallel)
+  return 0
 
 
 def FormatFiles(filenames,
@@ -176,7 +195,8 @@ def FormatFiles(filenames,
                 no_local_style=False,
                 in_place=False,
                 print_diff=False,
-                verify=True):
+                verify=True,
+                parallel=False):
   """Format a list of files.
 
   Arguments:
@@ -192,33 +212,58 @@ def FormatFiles(filenames,
     print_diff: (bool) Instead of returning the reformatted source, return a
       diff that turns the formatted source into reformatter source.
     verify: (bool) True if reformatted code should be verified for syntax.
+    parallel: (bool) True if should format multiple files in parallel.
 
   Returns:
     True if the source code changed in any of the files being formatted.
   """
   changed = False
-  for filename in filenames:
-    logging.info('Reformatting %s', filename)
-    if style_config is None and not no_local_style:
-      style_config = (
-          file_resources.GetDefaultStyleForDir(os.path.dirname(filename)))
-    try:
-      reformatted_code, encoding, has_change = yapf_api.FormatFile(
-          filename,
-          in_place=in_place,
-          style_config=style_config,
-          lines=lines,
-          print_diff=print_diff,
-          verify=verify,
-          logger=logging.warning)
-      if has_change and reformatted_code is not None:
-        file_resources.WriteReformattedCode(filename, reformatted_code,
-                                            in_place, encoding)
-      changed |= has_change
-    except SyntaxError as e:
-      e.filename = filename
-      raise
+  if parallel:
+    import multiprocessing  # pylint: disable=g-import-not-at-top
+    import concurrent.futures  # pylint: disable=g-import-not-at-top
+    workers = min(multiprocessing.cpu_count(), len(filenames))
+    with concurrent.futures.ProcessPoolExecutor(workers) as executor:
+      future_formats = [
+          executor.submit(_FormatFile, filename, lines, style_config,
+                          no_local_style, in_place, print_diff, verify)
+          for filename in filenames
+      ]
+      for future in concurrent.futures.as_completed(future_formats):
+        changed |= future.result()
+  else:
+    for filename in filenames:
+      changed |= _FormatFile(filename, lines, style_config, no_local_style,
+                             in_place, print_diff, verify)
   return changed
+
+
+def _FormatFile(filename,
+                lines,
+                style_config=None,
+                no_local_style=False,
+                in_place=False,
+                print_diff=False,
+                verify=True):
+  logging.info('Reformatting %s', filename)
+  if style_config is None and not no_local_style:
+    style_config = (
+        file_resources.GetDefaultStyleForDir(os.path.dirname(filename)))
+  try:
+    reformatted_code, encoding, has_change = yapf_api.FormatFile(
+        filename,
+        in_place=in_place,
+        style_config=style_config,
+        lines=lines,
+        print_diff=print_diff,
+        verify=verify,
+        logger=logging.warning)
+    if not in_place and reformatted_code:
+      file_resources.WriteReformattedCode(filename, reformatted_code, in_place,
+                                          encoding)
+    return has_change
+  except SyntaxError as e:
+    e.filename = filename
+    raise
 
 
 def _GetLines(line_strings):

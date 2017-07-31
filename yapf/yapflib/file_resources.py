@@ -1,4 +1,4 @@
-# Copyright 2015-2016 Google Inc. All Rights Reserved.
+# Copyright 2015-2017 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,6 +27,10 @@ from yapf.yapflib import errors
 from yapf.yapflib import py3compat
 from yapf.yapflib import style
 
+CR = '\r'
+LF = '\n'
+CRLF = '\r\n'
+
 
 def GetDefaultStyleForDir(dirname):
   """Return default style name for a given directory.
@@ -37,7 +41,7 @@ def GetDefaultStyleForDir(dirname):
     dirname: (unicode) The name of the directory.
 
   Returns:
-    The filename if found, otherwise return the glboal default (pep8).
+    The filename if found, otherwise return the global default (pep8).
   """
   dirname = os.path.abspath(dirname)
   while True:
@@ -72,7 +76,10 @@ def GetCommandLineFiles(command_line_file_list, recursive, exclude):
   return _FindPythonFiles(command_line_file_list, recursive, exclude)
 
 
-def WriteReformattedCode(filename, reformatted_code, in_place, encoding):
+def WriteReformattedCode(filename,
+                         reformatted_code,
+                         in_place=False,
+                         encoding=''):
   """Emit the reformatted code.
 
   Write the reformatted code into the file, if in_place is True. Otherwise,
@@ -85,12 +92,24 @@ def WriteReformattedCode(filename, reformatted_code, in_place, encoding):
     encoding: (unicode) The encoding of the file.
   """
   if in_place:
-    with py3compat.open_with_encoding(filename,
-                                      mode='w',
-                                      encoding=encoding) as fd:
+    with py3compat.open_with_encoding(
+        filename, mode='w', encoding=encoding, newline='') as fd:
       fd.write(reformatted_code)
   else:
-    py3compat.EncodeAndWriteToStdout(reformatted_code, encoding)
+    py3compat.EncodeAndWriteToStdout(reformatted_code)
+
+
+def LineEnding(lines):
+  """Retrieve the line ending of the original source."""
+  endings = {CRLF: 0, CR: 0, LF: 0}
+  for line in lines:
+    if line.endswith(CRLF):
+      endings[CRLF] += 1
+    elif line.endswith(CR):
+      endings[CR] += 1
+    elif line.endswith(LF):
+      endings[LF] += 1
+  return (sorted(endings, key=endings.get, reverse=True) or [LF])[0]
 
 
 def _FindPythonFiles(filenames, recursive, exclude):
@@ -100,10 +119,10 @@ def _FindPythonFiles(filenames, recursive, exclude):
     if os.path.isdir(filename):
       if recursive:
         # TODO(morbo): Look into a version of os.walk that can handle recursion.
-        python_files.extend(os.path.join(dirpath, f)
-                            for dirpath, _, filelist in os.walk(filename)
-                            for f in filelist
-                            if IsPythonFile(os.path.join(dirpath, f)))
+        python_files.extend(
+            os.path.join(dirpath, f)
+            for dirpath, _, filelist in os.walk(filename) for f in filelist
+            if IsPythonFile(os.path.join(dirpath, f)))
       else:
         raise errors.YapfError(
             "directory specified without '--recursive' flag: %s" % filename)
@@ -111,8 +130,10 @@ def _FindPythonFiles(filenames, recursive, exclude):
       python_files.append(filename)
 
   if exclude:
-    return [f for f in python_files
-            if not any(fnmatch.fnmatch(f, p) for p in exclude)]
+    return [
+        f for f in python_files
+        if not any(fnmatch.fnmatch(f, p) for p in exclude)
+    ]
 
   return python_files
 
@@ -127,7 +148,8 @@ def IsPythonFile(filename):
       encoding = tokenize.detect_encoding(fd.readline)[0]
 
     # Check for correctness of encoding.
-    with py3compat.open_with_encoding(filename, encoding=encoding) as fd:
+    with py3compat.open_with_encoding(
+        filename, mode='r', encoding=encoding) as fd:
       fd.read()
   except UnicodeDecodeError:
     encoding = 'latin-1'
@@ -138,9 +160,8 @@ def IsPythonFile(filename):
     return False
 
   try:
-    with py3compat.open_with_encoding(filename,
-                                      mode='r',
-                                      encoding=encoding) as fd:
+    with py3compat.open_with_encoding(
+        filename, mode='r', encoding=encoding) as fd:
       first_line = fd.readlines()[0]
   except (IOError, IndexError):
     return False

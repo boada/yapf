@@ -1,4 +1,4 @@
-# Copyright 2015-2016 Google Inc. All Rights Reserved.
+# Copyright 2015-2017 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -66,6 +66,7 @@ def NodeName(node):
     return token.tok_name[node.type]
   else:
     return pygram.python_grammar.number2symbol[node.type]
+
 
 # lib2to3 thoughtfully provides pygram.python_grammar_no_print_statement for
 # parsing Python 3 code that wouldn't parse otherwise (when 'print' is used in a
@@ -197,6 +198,7 @@ def _InsertNodeAt(new_node, target, after=False):
   raise RuntimeError('unable to find insertion point for target node',
                      (target,))
 
+
 # The following constant and functions implement a simple custom annotation
 # mechanism for pytree nodes. We attach new attributes to nodes. Each attribute
 # is prefixed with _NODE_ANNOTATION_PREFIX. These annotations should only be
@@ -267,16 +269,18 @@ def DumpNodeToString(node):
   """
   if isinstance(node, pytree.Leaf):
     fmt = '{name}({value}) [lineno={lineno}, column={column}, prefix={prefix}]'
-    return fmt.format(name=NodeName(node),
-                      value=_PytreeNodeRepr(node),
-                      lineno=node.lineno,
-                      column=node.column,
-                      prefix=repr(node.prefix))
+    return fmt.format(
+        name=NodeName(node),
+        value=_PytreeNodeRepr(node),
+        lineno=node.lineno,
+        column=node.column,
+        prefix=repr(node.prefix))
   else:
     fmt = '{node} [{len} children] [child_indent="{indent}"]'
-    return fmt.format(node=NodeName(node),
-                      len=len(node.children),
-                      indent=GetNodeAnnotation(node, Annotation.CHILD_INDENT))
+    return fmt.format(
+        node=NodeName(node),
+        len=len(node.children),
+        indent=GetNodeAnnotation(node, Annotation.CHILD_INDENT))
 
 
 def _PytreeNodeRepr(node):

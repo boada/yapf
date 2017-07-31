@@ -1,4 +1,4 @@
-# Copyright 2015-2016 Google Inc. All Rights Reserved.
+# Copyright 2015-2017 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -92,11 +92,11 @@ class _BlankLineCalculator(pytree_visitor.PyTreeVisitor):
     self.last_was_class_or_function = False
     index = self._SetBlankLinesBetweenCommentAndClassFunc(node)
     if _AsyncFunction(node):
-      # Move the number of blank lines to the async keyword.
-      num_newlines = pytree_utils.GetNodeAnnotation(
-          node.children[0], pytree_utils.Annotation.NEWLINES)
-      self._SetNumNewlines(node.prev_sibling, num_newlines)
+      index = self._SetBlankLinesBetweenCommentAndClassFunc(
+          node.prev_sibling.parent)
       self._SetNumNewlines(node.children[0], None)
+    else:
+      index = self._SetBlankLinesBetweenCommentAndClassFunc(node)
     self.last_was_decorator = False
     self.function_level += 1
     for child in node.children[index:]:
@@ -116,8 +116,7 @@ class _BlankLineCalculator(pytree_visitor.PyTreeVisitor):
     if self.last_was_class_or_function:
       if pytree_utils.NodeName(node) in _PYTHON_STATEMENTS:
         leaf = _GetFirstChildLeaf(node)
-        if pytree_utils.NodeName(leaf) != 'COMMENT':
-          self._SetNumNewlines(leaf, self._GetNumNewlines(leaf))
+        self._SetNumNewlines(leaf, self._GetNumNewlines(leaf))
     self.last_was_class_or_function = False
     super(_BlankLineCalculator, self).DefaultNodeVisit(node)
 
@@ -138,10 +137,11 @@ class _BlankLineCalculator(pytree_visitor.PyTreeVisitor):
       # Standalone comments are wrapped in a simple_stmt node with the comment
       # node as its only child.
       self.Visit(node.children[index].children[0])
-      self._SetNumNewlines(node.children[index].children[0], _ONE_BLANK_LINE)
+      if not self.last_was_decorator:
+        self._SetNumNewlines(node.children[index].children[0], _ONE_BLANK_LINE)
       index += 1
-    if (index and node.children[index].lineno - 1 ==
-        node.children[index - 1].children[0].lineno):
+    if (index and node.children[index].lineno -
+        1 == node.children[index - 1].children[0].lineno):
       self._SetNumNewlines(node.children[index], _NO_BLANK_LINES)
     else:
       if self.last_comment_lineno + 1 == node.children[index].lineno:

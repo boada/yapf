@@ -1,4 +1,4 @@
-# Copyright 2015-2016 Google Inc. All Rights Reserved.
+# Copyright 2015-2017 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,8 +18,6 @@ collects all nodes (stored in FormatToken objects) that could appear on a
 single line if there were no line length restrictions. It's then used by the
 parser to perform the wrapping required to comply with the style guide.
 """
-
-from lib2to3 import pytree
 
 from yapf.yapflib import format_token
 from yapf.yapflib import py3compat
@@ -74,8 +72,8 @@ class UnwrappedLine(object):
           _SpaceRequiredBetween(prev_token, token)):
         token.spaces_required_before = 1
 
-      token.total_length = (
-          prev_length + len(token.value) + token.spaces_required_before)
+      tok_len = len(token.value) if not token.is_pseudo_paren else 0
+      token.total_length = prev_length + tok_len + token.spaces_required_before
 
       # The split penalty has to be computed before {must|can}_break_before,
       # because these may use it for their decision.
@@ -145,10 +143,10 @@ class UnwrappedLine(object):
     return self.AsCode()
 
   def __repr__(self):  # pragma: no cover
-    tokens_repr = ','.join(['{0}({1!r})'.format(tok.name, tok.value)
-                            for tok in self._tokens])
-    return 'UnwrappedLine(depth={0}, tokens=[{1}])'.format(self.depth,
-                                                           tokens_repr)
+    tokens_repr = ','.join(
+        ['{0}({1!r})'.format(tok.name, tok.value) for tok in self._tokens])
+    return 'UnwrappedLine(depth={0}, tokens=[{1}])'.format(
+        self.depth, tokens_repr)
 
   ############################################################################
   # Properties                                                               #
@@ -196,7 +194,10 @@ def _SpaceRequiredBetween(left, right):
     # Space between keyword... tokens and pseudo parens.
     return True
   if left.is_pseudo_paren or right.is_pseudo_paren:
-    # The pseudo-parens shouldn't affect spacing.
+    # There should be a space after the ':' in a dictionary.
+    if left.OpensScope():
+      return True
+    # The closing pseudo-paren shouldn't affect spacing.
     return False
   if left.is_continuation or right.is_continuation:
     # The continuation node's value has all of the spaces it needs.
@@ -225,15 +226,24 @@ def _SpaceRequiredBetween(left, right):
   if lval == '.' and rval == 'import':
     # Space after the '.' in an import statement.
     return True
+  if lval == '=' and rval == '.':
+    # Space between equal and '.' as in "X = ...".
+    return True
   if ((right.is_keyword or right.is_name) and
       (left.is_keyword or left.is_name)):
     # Don't merge two keywords/identifiers.
     return True
-  if left.is_string and rval not in '[)]}.':
-    # A string followed by something other than a subscript, closing bracket,
-    # or dot should have a space after it.
-    return True
-  if left.is_binary_op and _IsUnaryOperator(right):
+  if left.is_string:
+    if (rval == '=' and format_token.Subtype.DEFAULT_OR_NAMED_ASSIGN_ARG_LIST in
+        right.subtypes):
+      # If there is a type hint, then we don't want to add a space between the
+      # equal sign and the hint.
+      return False
+    if rval not in '[)]}.':
+      # A string followed by something other than a subscript, closing bracket,
+      # or dot should have a space after it.
+      return True
+  if left.is_binary_op and lval != '**' and _IsUnaryOperator(right):
     # Space between the binary opertor and the unary operator.
     return True
   if _IsUnaryOperator(left) and _IsUnaryOperator(right):
@@ -257,12 +267,16 @@ def _SpaceRequiredBetween(left, right):
   if (format_token.Subtype.DEFAULT_OR_NAMED_ASSIGN in left.subtypes or
       format_token.Subtype.DEFAULT_OR_NAMED_ASSIGN in right.subtypes):
     # A named argument or default parameter shouldn't have spaces around it.
+    # However, a typed argument should have a space after the colon.
+    return lval == ':' or style.Get('SPACES_AROUND_DEFAULT_OR_NAMED_ASSIGN')
+  if (format_token.Subtype.VARARGS_LIST in left.subtypes or
+      format_token.Subtype.VARARGS_LIST in right.subtypes):
     return False
   if (format_token.Subtype.VARARGS_STAR in left.subtypes or
       format_token.Subtype.KWARGS_STAR_STAR in left.subtypes):
     # Don't add a space after a vararg's star or a keyword's star-star.
     return False
-  if lval == '@':
+  if lval == '@' and format_token.Subtype.DECORATOR in left.subtypes:
     # Decorators shouldn't be separated from the 'at' sign.
     return False
   if lval == '.' or rval == '.':
@@ -317,7 +331,9 @@ def _SpaceRequiredBetween(left, right):
 
 def _MustBreakBefore(prev_token, cur_token):
   """Return True if a line break is required before the current token."""
-  if prev_token.is_comment:
+  if prev_token.is_comment or (
+      prev_token.previous_token and prev_token.is_pseudo_paren and
+      prev_token.previous_token.is_comment):
     # Must break if the previous token was a comment.
     return True
   if (cur_token.is_string and prev_token.is_string and
@@ -326,9 +342,8 @@ def _MustBreakBefore(prev_token, cur_token):
     # reasonable assumption, because otherwise they should have written them
     # all on the same line, or with a '+'.
     return True
-  return pytree_utils.GetNodeAnnotation(cur_token.node,
-                                        pytree_utils.Annotation.MUST_SPLIT,
-                                        default=False)
+  return pytree_utils.GetNodeAnnotation(
+      cur_token.node, pytree_utils.Annotation.MUST_SPLIT, default=False)
 
 
 def _CanBreakBefore(prev_token, cur_token):
@@ -387,19 +402,19 @@ def IsSurroundedByBrackets(tok):
 
     if previous_token.value == '(':
       if paren_count == 0:
-        return True
+        return previous_token
       paren_count += 1
     elif previous_token.value == '{':
       if brace_count == 0:
-        return True
+        return previous_token
       brace_count += 1
     elif previous_token.value == '[':
       if sq_bracket_count == 0:
-        return True
+        return previous_token
       sq_bracket_count += 1
 
     previous_token = previous_token.previous_token
-  return False
+  return None
 
 
 _LOGICAL_OPERATORS = frozenset({'and', 'or'})
