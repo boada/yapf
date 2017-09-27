@@ -37,7 +37,6 @@ import re
 import sys
 
 from lib2to3.pgen2 import parse
-from lib2to3.pgen2 import tokenize
 
 from yapf.yapflib import blank_line_calculator
 from yapf.yapflib import comment_splicer
@@ -95,7 +94,7 @@ def FormatFile(filename,
   if in_place:
     if original_source and original_source != reformatted_source:
       file_resources.WriteReformattedCode(filename, reformatted_source,
-                                          in_place, encoding)
+                                          encoding, in_place)
     return None, encoding, changed
 
   return reformatted_source, encoding, changed
@@ -143,7 +142,8 @@ def FormatCode(unformatted_source,
 
   lines = _LineRangesToSet(lines)
   _MarkLinesToFormat(uwlines, lines)
-  reformatted_source = reformatter.Reformat(uwlines, verify, lines)
+  reformatted_source = reformatter.Reformat(
+      _SplitSemicolons(uwlines), verify, lines)
 
   if unformatted_source == reformatted_source:
     return '' if print_diff else reformatted_source, False
@@ -152,7 +152,7 @@ def FormatCode(unformatted_source,
       unformatted_source, reformatted_source, filename=filename)
 
   if print_diff:
-    return code_diff, code_diff != ''
+    return code_diff, code_diff.strip() != ''  # pylint: disable=g-explicit-bool-comparison
 
   return reformatted_source, True
 
@@ -185,14 +185,8 @@ def ReadFile(filename, logger=None):
     IOError: raised if there was an error reading the file.
   """
   try:
-    with open(filename, 'rb') as fd:
-      encoding = tokenize.detect_encoding(fd.readline)[0]
-  except IOError as err:
-    if logger:
-      logger(err)
-    raise
+    encoding = file_resources.FileEncoding(filename)
 
-  try:
     # Preserves line endings.
     with py3compat.open_with_encoding(
         filename, mode='r', encoding=encoding, newline='') as fd:
@@ -205,6 +199,13 @@ def ReadFile(filename, logger=None):
     if logger:
       logger(err)
     raise
+
+
+def _SplitSemicolons(uwlines):
+  res = []
+  for uwline in uwlines:
+    res.extend(uwline.Split())
+  return res
 
 
 DISABLE_PATTERN = r'^#.*\byapf:\s*disable\b'
@@ -228,8 +229,8 @@ def _MarkLinesToFormat(uwlines, lines):
   """Skip sections of code that we shouldn't reformat."""
   if lines:
     for uwline in uwlines:
-      uwline.disable = not (
-          lines.intersection(range(uwline.lineno, uwline.last.lineno + 1)))
+      uwline.disable = not lines.intersection(
+          range(uwline.lineno, uwline.last.lineno + 1))
 
   # Now go through the lines and disable any lines explicitly marked as
   # disabled.

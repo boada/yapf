@@ -31,9 +31,6 @@ from yapf.yapflib import split_penalty
 from yapf.yapflib import style
 from yapf.yapflib import unwrapped_line
 
-_COMPOUND_STMTS = frozenset(
-    {'for', 'while', 'if', 'elif', 'with', 'except', 'def', 'class'})
-
 
 class FormatDecisionState(object):
   """The current state when indenting an unwrapped line.
@@ -129,6 +126,7 @@ class FormatDecisionState(object):
       True if the line can be split before the next token.
     """
     current = self.next_token
+    previous = current.previous_token
 
     if current.is_pseudo_paren:
       return False
@@ -140,6 +138,24 @@ class FormatDecisionState(object):
       # In some situations, a dictionary may be multiline, but pylint doesn't
       # like it. So don't allow it unless forced to.
       return False
+
+    if (not must_split and
+        format_token.Subtype.DICTIONARY_VALUE in current.subtypes and
+        not style.Get('ALLOW_SPLIT_BEFORE_DICT_VALUE')):
+      return False
+
+    if previous and previous.value == '(' and current.value == ')':
+      # Don't split an empty function call list if we aren't splitting before
+      # dict values.
+      token = previous.previous_token
+      while token:
+        prev = token.previous_token
+        if not prev or prev.name not in {'NAME', 'DOT'}:
+          break
+        token = token.previous_token
+      if token and format_token.Subtype.DICTIONARY_VALUE in token.subtypes:
+        if not style.Get('ALLOW_SPLIT_BEFORE_DICT_VALUE'):
+          return False
 
     return current.can_break_before
 
@@ -165,7 +181,7 @@ class FormatDecisionState(object):
     # with the exception of function declarations.
     if (style.Get('SPLIT_BEFORE_FIRST_ARGUMENT') and
         self.line.first.value != 'def' and
-        self.line.first.value in _COMPOUND_STMTS):
+        _IsCompoundStatement(self.line.first)):
       return False
 
     ###########################################################################
@@ -256,7 +272,7 @@ class FormatDecisionState(object):
       if not current.OpensScope():
         opening = _GetOpeningBracket(current)
         if not self._EachDictEntryFitsOnOneLine(opening):
-          return True
+          return style.Get('ALLOW_SPLIT_BEFORE_DICT_VALUE')
 
     if previous.value == '{':
       # Split if the dict/set cannot fit on one line and ends in a comma.
@@ -502,11 +518,7 @@ class FormatDecisionState(object):
       self.stack[-1].closing_scope_indent = max(
           0, self.stack[-1].indent - style.Get('CONTINUATION_INDENT_WIDTH'))
 
-      split_before_closing_bracket = True
-      if style.Get('COALESCE_BRACKETS'):
-        split_before_closing_bracket = False
-
-      self.stack[-1].split_before_closing_bracket = split_before_closing_bracket
+      self.stack[-1].split_before_closing_bracket = True
 
     # Calculate the split penalty.
     penalty = current.split_penalty
@@ -565,7 +577,7 @@ class FormatDecisionState(object):
         if format_token.Subtype.DICTIONARY_VALUE in current.subtypes:
           return top_of_stack.indent
 
-    if (self.line.first.value in _COMPOUND_STMTS and
+    if (_IsCompoundStatement(self.line.first) and
         (not style.Get('DEDENT_CLOSING_BRACKETS') or
          style.Get('SPLIT_BEFORE_FIRST_ARGUMENT'))):
       token_indent = (len(self.line.first.whitespace_prefix.split('\n')[-1]) +
@@ -602,7 +614,10 @@ class FormatDecisionState(object):
     # If we encounter a closing bracket, we can remove a level from our
     # parenthesis stack.
     if len(self.stack) > 1 and current.ClosesScope():
-      self.stack[-2].last_space = self.stack[-1].last_space
+      if format_token.Subtype.DICTIONARY_KEY_PART in current.subtypes:
+        self.stack[-2].last_space = self.stack[-2].indent
+      else:
+        self.stack[-2].last_space = self.stack[-1].last_space
       self.stack.pop()
       self.paren_level -= 1
 
@@ -695,6 +710,16 @@ class FormatDecisionState(object):
     length = current.total_length - entry_start.total_length
     length += len(entry_start.value)
     return length + self.stack[-2].indent <= self.column_limit
+
+
+_COMPOUND_STMTS = frozenset(
+    {'for', 'while', 'if', 'elif', 'with', 'except', 'def', 'class'})
+
+
+def _IsCompoundStatement(token):
+  if token.value == 'async':
+    token = token.next_token
+  return token.value in _COMPOUND_STMTS
 
 
 def _IsFunctionCallWithArguments(token):

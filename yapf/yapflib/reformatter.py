@@ -68,8 +68,8 @@ def Reformat(uwlines, verify=False, lines=None):
       if prev_uwline and prev_uwline.disable:
         # Keep the vertical spacing between a disabled and enabled formatting
         # region.
-        _RetainRequiredVerticalSpacingBetweenTokens(
-            uwline.first, prev_uwline.last, lines)
+        _RetainRequiredVerticalSpacingBetweenTokens(uwline.first,
+                                                    prev_uwline.last, lines)
       if any(tok.is_comment for tok in uwline.tokens):
         _RetainVerticalSpacingBeforeComments(uwline)
 
@@ -134,11 +134,13 @@ def _RetainRequiredVerticalSpacingBetweenTokens(cur_tok, prev_tok, lines):
     cur_lineno = cur_tok.lineno
 
   if prev_tok.value.endswith('\\'):
-    prev_lineno = prev_lineno + prev_tok.value.count('\n')
+    prev_lineno += prev_tok.value.count('\n')
 
   required_newlines = cur_lineno - prev_lineno
-
-  if lines and (cur_lineno in lines or prev_lineno in lines):
+  if cur_tok.is_comment and not prev_tok.is_comment:
+    # Don't adjust between a comment and non-comment.
+    pass
+  elif lines and (cur_lineno in lines or prev_lineno in lines):
     desired_newlines = cur_tok.whitespace_prefix.count('\n')
     whitespace_lines = range(prev_lineno + 1, cur_lineno)
     deletable_lines = len(lines.intersection(whitespace_lines))

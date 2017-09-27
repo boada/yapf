@@ -25,6 +25,7 @@ the lib2to3 library.
 """
 
 import ast
+
 from lib2to3 import pygram
 from lib2to3 import pytree
 from lib2to3.pgen2 import driver
@@ -268,13 +269,15 @@ def DumpNodeToString(node):
     The string representation.
   """
   if isinstance(node, pytree.Leaf):
-    fmt = '{name}({value}) [lineno={lineno}, column={column}, prefix={prefix}]'
+    fmt = ('{name}({value}) [lineno={lineno}, column={column}, ' +
+           'prefix={prefix}, penalty={penalty}]')
     return fmt.format(
         name=NodeName(node),
         value=_PytreeNodeRepr(node),
         lineno=node.lineno,
         column=node.column,
-        prefix=repr(node.prefix))
+        prefix=repr(node.prefix),
+        penalty=GetNodeAnnotation(node, Annotation.SPLIT_PENALTY, None))
   else:
     fmt = '{node} [{len} children] [child_indent="{indent}"]'
     return fmt.format(

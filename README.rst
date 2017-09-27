@@ -301,6 +301,9 @@ Knobs
                  value,
         }
 
+``ALLOW_SPLIT_BEFORE_DICT_VALUE``
+    Allow splits before the dictionary value.
+
 ``BLANK_LINE_BEFORE_NESTED_CLASS_OR_DEF``
     Insert a blank line before a ``def`` or ``class`` immediately nested within
     another ``def`` or ``class``. For example:
@@ -398,6 +401,19 @@ Knobs
 
 ``SPACES_AROUND_POWER_OPERATOR``
     Set to ``True`` to prefer using spaces around ``**``.
+
+``NO_SPACES_AROUND_SELECTED_BINARY_OPERATORS``
+    Do not include spaces around selected binary operators. For example:
+
+    .. code-block:: python
+
+        1 + 2 * 3 - 4 / 5
+
+    will be formatted as follows when configured with a value ``"*,/"``:
+
+    .. code-block:: python
+
+        1 + 2*3 - 4/5
 
 ``SPACES_AROUND_DEFAULT_OR_NAMED_ASSIGN``
     Set to ``True`` to prefer spaces around the assignment operator for default

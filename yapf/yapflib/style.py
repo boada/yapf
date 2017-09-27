@@ -59,6 +59,8 @@ _STYLE_HELP = dict(
              'this is the second element of a tuple'):
                  value,
         }"""),
+    ALLOW_SPLIT_BEFORE_DICT_VALUE=textwrap.dedent("""\
+      Allow splits before the dictionary value."""),
     BLANK_LINE_BEFORE_NESTED_CLASS_OR_DEF=textwrap.dedent("""\
       Insert a blank line before a 'def' or 'class' immediately nested
       within another 'def' or 'class'. For example:
@@ -131,6 +133,16 @@ _STYLE_HELP = dict(
       The number of columns to use for indentation."""),
     JOIN_MULTIPLE_LINES=textwrap.dedent("""\
       Join short lines into one line. E.g., single line 'if' statements."""),
+    NO_SPACES_AROUND_SELECTED_BINARY_OPERATORS=textwrap.dedent("""\
+      Do not include spaces around selected binary operators. For example:
+
+        1 + 2 * 3 - 4 / 5
+
+      will be formatted as follows when configured with a value "*,/":
+
+        1 + 2*3 - 4/5
+
+      """),
     SPACE_BETWEEN_ENDING_COMMA_AND_CLOSING_BRACKET=textwrap.dedent("""\
       Insert a space between the ending comma and closing bracket of a list,
       etc."""),
@@ -202,6 +214,7 @@ def CreatePEP8Style():
       ALIGN_CLOSING_BRACKET_WITH_VISUAL_INDENT=True,
       ALLOW_MULTILINE_LAMBDAS=False,
       ALLOW_MULTILINE_DICTIONARY_KEYS=False,
+      ALLOW_SPLIT_BEFORE_DICT_VALUE=True,
       BLANK_LINE_BEFORE_NESTED_CLASS_OR_DEF=False,
       BLANK_LINE_BEFORE_CLASS_DOCSTRING=False,
       COALESCE_BRACKETS=False,
@@ -216,6 +229,7 @@ def CreatePEP8Style():
       JOIN_MULTIPLE_LINES=True,
       SPACE_BETWEEN_ENDING_COMMA_AND_CLOSING_BRACKET=True,
       SPACES_AROUND_POWER_OPERATOR=False,
+      NO_SPACES_AROUND_SELECTED_BINARY_OPERATORS=set(),
       SPACES_AROUND_DEFAULT_OR_NAMED_ASSIGN=False,
       SPACES_BEFORE_COMMENT=2,
       SPLIT_ARGUMENTS_WHEN_COMMA_TERMINATED=False,
@@ -300,6 +314,11 @@ def _StringListConverter(s):
   return [part.strip() for part in s.split(',')]
 
 
+def _StringSetConverter(s):
+  """Option value converter for a comma-separated set of strings."""
+  return set(part.strip() for part in s.split(','))
+
+
 def _BoolConverter(s):
   """Option value converter for a boolean."""
   return py3compat.CONFIGPARSER_BOOLEAN_STATES[s.lower()]
@@ -316,6 +335,7 @@ _STYLE_OPTION_VALUE_CONVERTER = dict(
     ALIGN_CLOSING_BRACKET_WITH_VISUAL_INDENT=_BoolConverter,
     ALLOW_MULTILINE_LAMBDAS=_BoolConverter,
     ALLOW_MULTILINE_DICTIONARY_KEYS=_BoolConverter,
+    ALLOW_SPLIT_BEFORE_DICT_VALUE=_BoolConverter,
     BLANK_LINE_BEFORE_NESTED_CLASS_OR_DEF=_BoolConverter,
     BLANK_LINE_BEFORE_CLASS_DOCSTRING=_BoolConverter,
     COALESCE_BRACKETS=_BoolConverter,
@@ -328,6 +348,7 @@ _STYLE_OPTION_VALUE_CONVERTER = dict(
     INDENT_DICTIONARY_VALUE=_BoolConverter,
     INDENT_WIDTH=int,
     JOIN_MULTIPLE_LINES=_BoolConverter,
+    NO_SPACES_AROUND_SELECTED_BINARY_OPERATORS=_StringSetConverter,
     SPACE_BETWEEN_ENDING_COMMA_AND_CLOSING_BRACKET=_BoolConverter,
     SPACES_AROUND_POWER_OPERATOR=_BoolConverter,
     SPACES_AROUND_DEFAULT_OR_NAMED_ASSIGN=_BoolConverter,
@@ -474,8 +495,8 @@ def _CreateStyleFromConfigParser(config):
     try:
       base_style[option] = _STYLE_OPTION_VALUE_CONVERTER[option](value)
     except ValueError:
-      raise StyleConfigError(
-          "'{}' is not a valid setting for {}.".format(value, option))
+      raise StyleConfigError("'{}' is not a valid setting for {}.".format(
+          value, option))
   return base_style
 
 

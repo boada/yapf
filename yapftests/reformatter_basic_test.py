@@ -459,10 +459,17 @@ class BasicReformatterTest(yapf_test_helper.YAPFTest):
 
   def testOpeningAndClosingBrackets(self):
     unformatted_code = textwrap.dedent("""\
+        foo( (1, ) )
+        foo( ( 1, 2, 3  ) )
         foo( ( 1, 2, 3, ) )
         """)
     expected_formatted_code = textwrap.dedent("""\
-        foo((1, 2, 3,))
+        foo((1,))
+        foo((1, 2, 3))
+        foo((
+            1,
+            2,
+            3,))
         """)
     uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
     self.assertCodeEqual(expected_formatted_code, reformatter.Reformat(uwlines))
@@ -479,18 +486,17 @@ class BasicReformatterTest(yapf_test_helper.YAPFTest):
     self.assertCodeEqual(expected_formatted_code, reformatter.Reformat(uwlines))
 
   def testNoQueueSeletionInMiddleOfLine(self):
-    # If the queue isn't properly consttructed, then a token in the middle of
-    # the line may be selected as the one with least penalty. The tokens after
-    # that one are then splatted at the end of the line with no formatting.
+    # If the queue isn't properly constructed, then a token in the middle of the
+    # line may be selected as the one with least penalty. The tokens after that
+    # one are then splatted at the end of the line with no formatting.
     # FIXME(morbo): The formatting here isn't ideal.
-    unformatted_code = textwrap.dedent("""\
-        find_symbol(node.type) + "< " + " ".join(find_pattern(n) for n in \
-node.child) + " >"
-        """)
-    expected_formatted_code = textwrap.dedent("""\
-        find_symbol(node.type) + "< " + " ".join(find_pattern(n)
-                                                 for n in node.child) + " >"
-        """)
+    unformatted_code = """\
+find_symbol(node.type) + "< " + " ".join(find_pattern(n) for n in node.child) + " >"
+"""
+    expected_formatted_code = """\
+find_symbol(
+    node.type) + "< " + " ".join(find_pattern(n) for n in node.child) + " >"
+"""
     uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
     self.assertCodeEqual(expected_formatted_code, reformatter.Reformat(uwlines))
 
@@ -737,9 +743,9 @@ xxxxxxxxxxx, yyyyyyyyyyyy, vvvvvvvvv)
         def f():
 
           def g():
-            while (
-                xxxxxxxxxxxxxxxxxxxxx(yyyyyyyyyyyyy[zzzzz]) == 'aaaaaaaaaaa' and
-                xxxxxxxxxxxxxxxxxxxxx(yyyyyyyyyyyyy[zzzzz].aaaaaaaa[0]) == 'bbbbbbb'):
+            while (xxxxxxxxxxxxxxxxxxxxx(yyyyyyyyyyyyy[zzzzz]) == 'aaaaaaaaaaa' and
+                   xxxxxxxxxxxxxxxxxxxxx(
+                       yyyyyyyyyyyyy[zzzzz].aaaaaaaa[0]) == 'bbbbbbb'):
               pass
         ''')
     uwlines = yapf_test_helper.ParseAndUnwrap(code)
@@ -1312,8 +1318,7 @@ xxxxxxxxxxx, yyyyyyyyyyyy, vvvvvvvvv)
     code = textwrap.dedent("""\
       a = f(
           a="something",
-          b=
-          "something requiring comment which is quite long",  # comment about b (pushes line over 79)
+          b="something requiring comment which is quite long",  # comment about b (pushes line over 79)
           c="something else, about which comment doesn't make sense")
       """)
     uwlines = yapf_test_helper.ParseAndUnwrap(code)
@@ -1583,7 +1588,7 @@ xxxxxxxxxxx, yyyyyyyyyyyy, vvvvvvvvv)
                   1,
               ('consectetur adipiscing elit.',
                'Vestibulum mauris justo, ornare eget dolor eget'):
-                   2,
+                  2,
               ('vehicula convallis nulla. Vestibulum dictum nisl in malesuada finibus.',):
                   3
           }
@@ -2266,23 +2271,26 @@ xxxxxxxxxxx, yyyyyyyyyyyy, vvvvvvvvv)
           style.CreateStyleFromConfig(
               '{based_on_style: chromium, coalesce_brackets: True}'))
       unformatted_code = textwrap.dedent("""\
-          date_time_values = {
+          date_time_values = (
+              {
+                  u'year': year,
+                  u'month': month,
+                  u'day_of_month': day_of_month,
+                  u'hours': hours,
+                  u'minutes': minutes,
+                  u'seconds': seconds
+              }
+          )
+          """)
+      expected_formatted_code = textwrap.dedent("""\
+          date_time_values = ({
               u'year': year,
               u'month': month,
               u'day_of_month': day_of_month,
               u'hours': hours,
               u'minutes': minutes,
               u'seconds': seconds
-          }
-          """)
-      expected_formatted_code = textwrap.dedent("""\
-          date_time_values = {
-              u'year': year,
-              u'month': month,
-              u'day_of_month': day_of_month,
-              u'hours': hours,
-              u'minutes': minutes,
-              u'seconds': seconds}
+          })
           """)
       uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
       self.assertCodeEqual(expected_formatted_code,

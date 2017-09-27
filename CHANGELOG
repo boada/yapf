@@ -2,9 +2,43 @@
 # All notable changes to this project will be documented in this file.
 # This project adheres to [Semantic Versioning](http://semver.org/).
 
-## [0.16.4] Unreleased
+## [0.18.1] UNRELEASED
+### Fixed
+- Prefer to split after a comma in an argument list rather than in the middle
+  of an argument.
+
+## [0.18.0] 2017-09-18
+### Added
+- Option `ALLOW_SPLIT_BEFORE_DICT_VALUE` allows a split before a value. If
+  False, then it won't be split even if it goes over the column limit.
+### Changed
+- Use spaces around the '=' in a typed name argument to align with 3.6 syntax.
+### Fixed
+- Allow semicolons if the line is disabled.
+- Fix issue where subsequent comments at decreasing levels of indentation
+  were improperly aligned and/or caused output with invalid syntax.
+- Fix issue where specifying a line range removed a needed line before a
+  comment.
+- Fix spacing between unary operators if one is 'not'.
+- Indent the dictionary value correctly if there's a multi-line key.
+- Don't remove needed spacing before a comment in a dict when in "chromium"
+  style.
+- Increase indent for continuation line with same indent as next logical line
+  with 'async with' statement.
+
+## [0.17.0] 2017-08-20
+### Added
+- Option `NO_SPACES_AROUND_SELECTED_BINARY_OPERATORS` prevents adding spaces
+  around selected binary operators, in accordance with the current style guide.
 ### Changed
 - Adjust blank lines on formatting boundaries when using the `--lines` option.
+- Return 1 if a diff changed the code. This is in line with how GNU diff acts.
+- Add `-vv` flag to print out file names as they are processed
+### Fixed
+- Corrected how `DEDENT_CLOSING_BRACKETS` and `COALESCE_BRACKETS` interacted.
+- Fix return value to return a boolean.
+- Correct vim plugin not to clobber edited code if yapf returns an error.
+- Ensured comma-terminated tuples with multiple elements are split onto separate lines.
 
 ## [0.16.3] 2017-07-13
 ### Changed
