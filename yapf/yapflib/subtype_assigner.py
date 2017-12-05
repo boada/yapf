@@ -150,6 +150,7 @@ class _SubtypeAssigner(pytree_visitor.PyTreeVisitor):
       self.Visit(child)
       if isinstance(child, pytree.Leaf) and child.value == '*':
         _AppendTokenSubtype(child, format_token.Subtype.UNARY_OPERATOR)
+        _AppendTokenSubtype(child, format_token.Subtype.VARARGS_STAR)
 
   def Visit_expr(self, node):  # pylint: disable=invalid-name
     # expr ::= xor_expr ('|' xor_expr)*
@@ -303,6 +304,12 @@ class _SubtypeAssigner(pytree_visitor.PyTreeVisitor):
   def Visit_comp_for(self, node):  # pylint: disable=invalid-name
     # comp_for ::= 'for' exprlist 'in' testlist_safe [comp_iter]
     _AppendSubtypeRec(node, format_token.Subtype.COMP_FOR)
+    # Mark the previous node as COMP_EXPR unless this is a nested comprehension
+    # as these will have the outer comprehension as their previous node.
+    attr = pytree_utils.GetNodeAnnotation(node.parent,
+                                          pytree_utils.Annotation.SUBTYPE)
+    if not attr or format_token.Subtype.COMP_FOR not in attr:
+      _AppendSubtypeRec(node.parent.children[0], format_token.Subtype.COMP_EXPR)
     self.DefaultNodeVisit(node)
 
   def Visit_comp_if(self, node):  # pylint: disable=invalid-name

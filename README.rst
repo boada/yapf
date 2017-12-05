@@ -90,6 +90,7 @@ Options::
 
     usage: yapf [-h] [-v] [-d | -i] [-r | -l START-END] [-e PATTERN]
                 [--style STYLE] [--style-help] [--no-local-style] [-p]
+                [-vv]
                 [files [files ...]]
 
     Formatter for Python code.
@@ -113,10 +114,12 @@ Options::
                             .style.yapf or setup.cfg file located in one of the
                             parent directories of the source file (or current
                             directory for stdin)
-      --style-help          show style settings and exit
-      --no-local-style      don't search for local style definition (.style.yapf)
+      --style-help          show style settings and exit; this output can be saved
+                            to .style.yapf to make your settings permanent
+      --no-local-style      don't search for local style definition
       -p, --parallel        Run yapf in parallel when formatting multiple files.
                             Requires concurrent.futures in Python 2.X
+      -vv, --verbose        Print out file names while processing
 
 
 Formatting style
@@ -443,6 +446,10 @@ Knobs
             for variable in bar if variable != 42
         }
 
+``SPLIT_BEFORE_EXPRESSION_AFTER_OPENING_PAREN``
+    Split after the opening paren which surrounds an expression if it doesn't
+    fit on a single line.
+
 ``SPLIT_BEFORE_FIRST_ARGUMENT``
     If an argument / parameter list is going to be split, then split before the
     first argument.
@@ -453,6 +460,27 @@ Knobs
 
 ``SPLIT_BEFORE_NAMED_ASSIGNS``
     Split named assignments onto individual lines.
+
+``SPLIT_COMPLEX_COMPREHENSION``
+    For list comprehensions and generator expressions with multiple clauses
+    (e.g mutiple "for" calls, "if" filter expressions) and which need to be
+    reflowed, split each clause onto its own line. For example:
+
+    .. code-block:: python
+
+      result = [
+          a_var + b_var for a_var in xrange(1000) for b_var in xrange(1000)
+          if a_var % b_var]
+
+    would reformat to something like:
+
+    .. code-block:: python
+
+      result = [
+          a_var + b_var
+          for a_var in xrange(1000)
+          for b_var in xrange(1000)
+          if a_var % b_var]
 
 ``SPLIT_PENALTY_AFTER_OPENING_BRACKET``
     The penalty for splitting right after the opening bracket.
@@ -466,6 +494,9 @@ Knobs
 ``SPLIT_PENALTY_BITWISE_OPERATOR``
     The penalty of splitting the line around the ``&``, ``|``, and ``^``
     operators.
+
+``SPLIT_PENALTY_COMPREHENSION``
+    The penalty for splitting a list comprehension or generator expression.
 
 ``SPLIT_PENALTY_EXCESS_CHARACTER``
     The penalty for characters over the column limit.
@@ -506,7 +537,7 @@ YAPF tries very hard to get the formatting correct. But for some code, it won't
 be as good as hand-formatting. In particular, large data literals may become
 horribly disfigured under YAPF.
 
-The reason for this is many-fold. But in essence YAPF is simply a tool to help
+The reasons for this are manyfold. In short, YAPF is simply a tool to help
 with development. It will format things to coincide with the style guide, but
 that may not equate with readability.
 

@@ -79,8 +79,8 @@ class UnwrappedLine(object):
       # because these may use it for their decision.
       token.split_penalty += _SplitPenalty(prev_token, token)
       token.must_break_before = _MustBreakBefore(prev_token, token)
-      token.can_break_before = (token.must_break_before or
-                                _CanBreakBefore(prev_token, token))
+      token.can_break_before = (
+          token.must_break_before or _CanBreakBefore(prev_token, token))
 
       prev_length = token.total_length
       prev_token = token
@@ -315,6 +315,9 @@ def _SpaceRequiredBetween(left, right):
   if lval == '@' and format_token.Subtype.DECORATOR in left.subtypes:
     # Decorators shouldn't be separated from the 'at' sign.
     return False
+  if left.is_keyword and rval == '.' or lval == '.' and right.is_keyword:
+    # Add space between keywords and dots.
+    return True
   if lval == '.' or rval == '.':
     # Don't place spaces between dots.
     return False

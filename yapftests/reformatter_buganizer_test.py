@@ -28,6 +28,242 @@ class BuganizerFixes(yapf_test_helper.YAPFTest):
   def setUpClass(cls):
     style.SetGlobalStyle(style.CreateChromiumStyle())
 
+  def testB67935450(self):
+    unformatted_code = """\
+def _():
+  return (
+      (Gauge(
+          metric='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+          group_by=group_by + ['metric:process_name'],
+          metric_filter={'metric:process_name': process_name_re}),
+       Gauge(
+           metric='bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+           group_by=group_by + ['metric:process_name'],
+           metric_filter={'metric:process_name': process_name_re}))
+      | expr.Join(
+          left_name='start', left_default=0, right_name='end', right_default=0)
+      | m.Point(
+          m.Cond(m.VAL['end'] != 0, m.VAL['end'], k.TimestampMicros() /
+                 1000000L) - m.Cond(m.VAL['start'] != 0, m.VAL['start'],
+                                    m.TimestampMicros() / 1000000L)))
+"""
+    expected_formatted_code = """\
+def _():
+  return (
+      (Gauge(
+          metric='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+          group_by=group_by + ['metric:process_name'],
+          metric_filter={
+              'metric:process_name': process_name_re
+          }),
+       Gauge(
+           metric='bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+           group_by=group_by + ['metric:process_name'],
+           metric_filter={
+               'metric:process_name': process_name_re
+           }))
+      | expr.Join(
+          left_name='start', left_default=0, right_name='end', right_default=0)
+      | m.Point(
+          m.Cond(m.VAL['end'] != 0, m.VAL['end'],
+                 k.TimestampMicros() / 1000000L) -
+          m.Cond(m.VAL['start'] != 0, m.VAL['start'],
+                 m.TimestampMicros() / 1000000L)))
+"""
+    uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
+    self.assertCodeEqual(expected_formatted_code, reformatter.Reformat(uwlines))
+
+  def testB66011084(self):
+    unformatted_code = """\
+X = {
+"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa":  # Comment 1.
+([] if True else [ # Comment 2.
+    "bbbbbbbbbbbbbbbbbbb",  # Comment 3.
+    "cccccccccccccccccccccccc", # Comment 4.
+    "ddddddddddddddddddddddddd", # Comment 5.
+    "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", # Comment 6.
+    "fffffffffffffffffffffffffffffff", # Comment 7.
+    "ggggggggggggggggggggggggggg", # Comment 8.
+    "hhhhhhhhhhhhhhhhhh",  # Comment 9.
+]),
+}
+"""
+    expected_formatted_code = """\
+X = {
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa":  # Comment 1.
+        ([] if True else [  # Comment 2.
+            "bbbbbbbbbbbbbbbbbbb",  # Comment 3.
+            "cccccccccccccccccccccccc",  # Comment 4.
+            "ddddddddddddddddddddddddd",  # Comment 5.
+            "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",  # Comment 6.
+            "fffffffffffffffffffffffffffffff",  # Comment 7.
+            "ggggggggggggggggggggggggggg",  # Comment 8.
+            "hhhhhhhhhhhhhhhhhh",  # Comment 9.
+        ]),
+}
+"""
+    uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
+    self.assertCodeEqual(expected_formatted_code, reformatter.Reformat(uwlines))
+
+  def testB67455376(self):
+    unformatted_code = """\
+sponge_ids.extend(invocation.id() for invocation in self._client.GetInvocationsByLabels(labels))
+"""
+    expected_formatted_code = """\
+sponge_ids.extend(invocation.id()
+                  for invocation in self._client.GetInvocationsByLabels(labels))
+"""
+    uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
+    self.assertCodeEqual(expected_formatted_code, reformatter.Reformat(uwlines))
+
+  def testB35210351(self):
+    unformatted_code = """\
+def _():
+  config.AnotherRuleThing(
+      'the_title_to_the_thing_here',
+      {'monitorname': 'firefly',
+       'service': ACCOUNTING_THING,
+       'severity': 'the_bug',
+       'monarch_module_name': alerts.TheLabel(qa_module_regexp, invert=True)},
+      fanout,
+      alerts.AlertUsToSomething(
+          GetTheAlertToIt('the_title_to_the_thing_here'),
+          GetNotificationTemplate('your_email_here')))
+"""
+    expected_formatted_code = """\
+def _():
+  config.AnotherRuleThing(
+      'the_title_to_the_thing_here', {
+          'monitorname': 'firefly',
+          'service': ACCOUNTING_THING,
+          'severity': 'the_bug',
+          'monarch_module_name': alerts.TheLabel(qa_module_regexp, invert=True)
+      }, fanout,
+      alerts.AlertUsToSomething(
+          GetTheAlertToIt('the_title_to_the_thing_here'),
+          GetNotificationTemplate('your_email_here')))
+"""
+    uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
+    self.assertCodeEqual(expected_formatted_code, reformatter.Reformat(uwlines))
+
+  def testB34774905(self):
+    unformatted_code = """\
+x=[VarExprType(ir_name=IrName( value='x',
+expr_type=UnresolvedAttrExprType( atom=UnknownExprType(), attr_name=IrName(
+    value='x', expr_type=UnknownExprType(), usage='UNKNOWN', fqn=None,
+    astn=None), usage='REF'), usage='ATTR', fqn='<attr>.x', astn=None))]
+"""
+    expected_formatted_code = """\
+x = [
+    VarExprType(
+        ir_name=IrName(
+            value='x',
+            expr_type=UnresolvedAttrExprType(
+                atom=UnknownExprType(),
+                attr_name=IrName(
+                    value='x',
+                    expr_type=UnknownExprType(),
+                    usage='UNKNOWN',
+                    fqn=None,
+                    astn=None),
+                usage='REF'),
+            usage='ATTR',
+            fqn='<attr>.x',
+            astn=None))
+]
+"""
+    uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
+    self.assertCodeEqual(expected_formatted_code, reformatter.Reformat(uwlines))
+
+  def testB65176185(self):
+    code = """\
+xx = zip(*[(a, b) for (a, b, c) in yy])
+"""
+    uwlines = yapf_test_helper.ParseAndUnwrap(code)
+    self.assertCodeEqual(code, reformatter.Reformat(uwlines))
+
+  def testB35210166(self):
+    unformatted_code = """\
+def _():
+  query = (
+      m.Fetch(n.Raw('monarch.BorgTask', '/proc/container/memory/usage'), { 'borg_user': borguser, 'borg_job': jobname })
+      | o.Window(m.Align('5m')) | p.GroupBy(['borg_user', 'borg_job', 'borg_cell'], q.Mean()))
+"""
+    expected_formatted_code = """\
+def _():
+  query = (
+      m.Fetch(
+          n.Raw('monarch.BorgTask', '/proc/container/memory/usage'), {
+              'borg_user': borguser,
+              'borg_job': jobname
+          })
+      | o.Window(m.Align('5m'))
+      | p.GroupBy(['borg_user', 'borg_job', 'borg_cell'], q.Mean()))
+"""
+    uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
+    self.assertCodeEqual(expected_formatted_code, reformatter.Reformat(uwlines))
+
+  def testB32167774(self):
+    unformatted_code = """\
+X = (
+    'is_official',
+    'is_cover',
+    'is_remix',
+    'is_instrumental',
+    'is_live',
+    'has_lyrics',
+    'is_album',
+    'is_compilation',)
+"""
+    expected_formatted_code = """\
+X = (
+    'is_official',
+    'is_cover',
+    'is_remix',
+    'is_instrumental',
+    'is_live',
+    'has_lyrics',
+    'is_album',
+    'is_compilation',
+)
+"""
+    uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
+    self.assertCodeEqual(expected_formatted_code, reformatter.Reformat(uwlines))
+
+  def testB66912275(self):
+    unformatted_code = """\
+def _():
+  with self.assertRaisesRegexp(errors.HttpError, 'Invalid'):
+    patch_op = api_client.forwardingRules().patch(
+        project=project_id,
+        region=region,
+        forwardingRule=rule_name,
+        body={'fingerprint': base64.urlsafe_b64encode('invalid_fingerprint')}).execute()
+"""
+    expected_formatted_code = """\
+def _():
+  with self.assertRaisesRegexp(errors.HttpError, 'Invalid'):
+    patch_op = api_client.forwardingRules().patch(
+        project=project_id,
+        region=region,
+        forwardingRule=rule_name,
+        body={
+            'fingerprint': base64.urlsafe_b64encode('invalid_fingerprint')
+        }).execute()
+"""
+    uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
+    self.assertCodeEqual(expected_formatted_code, reformatter.Reformat(uwlines))
+
+  def testB67312284(self):
+    code = """\
+def _():
+  self.assertEqual(
+      [u'to be published 2', u'to be published 1', u'to be published 0'],
+      [el.text for el in page.first_column_tds])
+"""
+    uwlines = yapf_test_helper.ParseAndUnwrap(code)
+    self.assertCodeEqual(code, reformatter.Reformat(uwlines))
+
   def testB65241516(self):
     unformatted_code = """\
 checkpoint_files = gfile.Glob(os.path.join(TrainTraceDir(unit_key, "*", "*"), embedding_model.CHECKPOINT_FILENAME + "-*"))
@@ -43,8 +279,8 @@ checkpoint_files = gfile.Glob(
 
   def testB37460004(self):
     code = textwrap.dedent("""\
-        assert all(s not in (_SENTINEL, None) for s in
-                   nested_schemas), 'Nested schemas should never contain None/_SENTINEL'
+        assert all(s not in (_SENTINEL, None) for s in nested_schemas
+                  ), 'Nested schemas should never contain None/_SENTINEL'
         """)
     uwlines = yapf_test_helper.ParseAndUnwrap(code)
     self.assertCodeEqual(code, reformatter.Reformat(uwlines))
@@ -338,17 +574,18 @@ checkpoint_files = gfile.Glob(
     self.assertCodeEqual(code, reformatter.Reformat(uwlines))
 
   def testB31911533(self):
-    code = textwrap.dedent("""\
-        class _():
+    code = """\
+class _():
 
-          @parameterized.NamedParameters(
-              ('IncludingModInfoWithHeaderList', AAAA, aaaa),
-              ('IncludingModInfoWithoutHeaderList', BBBB, bbbbb),
-              ('ExcludingModInfoWithHeaderList', CCCCC, cccc),
-              ('ExcludingModInfoWithoutHeaderList', DDDDD, ddddd),)
-          def _():
-            pass
-        """)
+  @parameterized.NamedParameters(
+      ('IncludingModInfoWithHeaderList', AAAA, aaaa),
+      ('IncludingModInfoWithoutHeaderList', BBBB, bbbbb),
+      ('ExcludingModInfoWithHeaderList', CCCCC, cccc),
+      ('ExcludingModInfoWithoutHeaderList', DDDDD, ddddd),
+  )
+  def _():
+    pass
+"""
     uwlines = yapf_test_helper.ParseAndUnwrap(code)
     self.assertCodeEqual(code, reformatter.Reformat(uwlines))
 
@@ -775,20 +1012,21 @@ checkpoint_files = gfile.Glob(
         class F():
 
           def f():
-            self.assertDictEqual(accounts, {
-                'foo': {
-                    'account': 'foo',
-                    'lines': 'l1\\nl2\\nl3\\n1 line(s) were elided.'
-                },
-                'bar': {
-                    'account': 'bar',
-                    'lines': 'l5\\nl6\\nl7'
-                },
-                'wiz': {
-                    'account': 'wiz',
-                    'lines': 'l8'
-                }
-            })
+            self.assertDictEqual(
+                accounts, {
+                    'foo': {
+                        'account': 'foo',
+                        'lines': 'l1\\nl2\\nl3\\n1 line(s) were elided.'
+                    },
+                    'bar': {
+                        'account': 'bar',
+                        'lines': 'l5\\nl6\\nl7'
+                    },
+                    'wiz': {
+                        'account': 'wiz',
+                        'lines': 'l8'
+                    }
+                })
         """)
     uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
     self.assertCodeEqual(expected_formatted_code, reformatter.Reformat(uwlines))
@@ -853,9 +1091,11 @@ checkpoint_files = gfile.Glob(
                    | m.ggggggg(bbbbbbbbbbbbbbb)
                    | m.ppppp(
                        (1 - m.ffffffffffffffff(llllllllllllllllllllll * 1000000, m.vvv))
-                       * m.ddddddddddddddddd(m.vvv)), m.fffff(
-                           m.rrr('mmmmmmmmmmmmmmmm', 'sssssssssssssssssssssss'),
-                           dict(ffffffffffffffff, **{
+                       * m.ddddddddddddddddd(m.vvv)),
+                   m.fffff(
+                       m.rrr('mmmmmmmmmmmmmmmm', 'sssssssssssssssssssssss'),
+                       dict(
+                           ffffffffffffffff, **{
                                'mmmmmm:ssssss':
                                    m.rrrrrrrrrrr('|'.join(iiiiiiiiiiiiii), iiiiii=True)
                            }))
@@ -1129,15 +1369,14 @@ checkpoint_files = gfile.Glob(
     self.assertCodeEqual(code, reformatter.Reformat(uwlines))
 
   def testB19073499(self):
-    code = textwrap.dedent("""\
-        instance = (
-            aaaaaaa.bbbbbbb().ccccccccccccccccc().ddddddddddd({
-                'aa': 'context!'
-            }).eeeeeeeeeeeeeeeeeee(
-                {  # Inline comment about why fnord has the value 6.
-                    'fnord': 6
-                }))
-        """)
+    code = """\
+instance = (
+    aaaaaaa.bbbbbbb().ccccccccccccccccc().ddddddddddd({
+        'aa': 'context!'
+    }).eeeeeeeeeeeeeeeeeee({  # Inline comment about why fnord has the value 6.
+        'fnord': 6
+    }))
+"""
     uwlines = yapf_test_helper.ParseAndUnwrap(code)
     self.assertCodeEqual(code, reformatter.Reformat(uwlines))
 
@@ -1225,9 +1464,10 @@ checkpoint_files = gfile.Glob(
         def f():
           if True:
             if True:
-              return aaaa.bbbbbbbbb(ccccccc=dddddddddddddd({
-                  ('eeee', 'ffffffff'): str(j)
-              }))
+              return aaaa.bbbbbbbbb(
+                  ccccccc=dddddddddddddd({
+                      ('eeee', 'ffffffff'): str(j)
+                  }))
         """)
     uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
     self.assertCodeEqual(expected_formatted_code, reformatter.Reformat(uwlines))
@@ -1431,16 +1671,17 @@ checkpoint_files = gfile.Glob(
     self.assertCodeEqual(expected_formatted_code, reformatter.Reformat(uwlines))
 
   def testB14468247(self):
-    unformatted_code = textwrap.dedent("""\
-        call(a=1,
-            b=2,
-        )
-        """)
-    expected_formatted_code = textwrap.dedent("""\
-        call(
-            a=1,
-            b=2,)
-        """)
+    unformatted_code = """\
+call(a=1,
+    b=2,
+)
+"""
+    expected_formatted_code = """\
+call(
+    a=1,
+    b=2,
+)
+"""
     uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
     self.assertCodeEqual(expected_formatted_code, reformatter.Reformat(uwlines))
 

@@ -166,6 +166,10 @@ _STYLE_HELP = dict(
             variable: 'Hello world, have a nice day!'
             for variable in bar if variable != 42
         }"""),
+    SPLIT_BEFORE_EXPRESSION_AFTER_OPENING_PAREN=textwrap.dedent("""\
+      Split after the opening paren which surrounds an expression if it doesn't
+      fit on a single line.
+      """),
     SPLIT_BEFORE_FIRST_ARGUMENT=textwrap.dedent("""\
       If an argument / parameter list is going to be split, then split before
       the first argument."""),
@@ -174,6 +178,22 @@ _STYLE_HELP = dict(
       after."""),
     SPLIT_BEFORE_NAMED_ASSIGNS=textwrap.dedent("""\
       Split named assignments onto individual lines."""),
+    SPLIT_COMPLEX_COMPREHENSION=textwrap.dedent("""\
+      Set to True to split list comprehensions and generators that have
+      non-trivial expressions and multiple clauses before each of these
+      clauses. For example:
+
+        result = [
+            a_long_var + 100 for a_long_var in xrange(1000)
+            if a_long_var % 10]
+
+      would reformat to something like:
+
+        result = [
+            a_long_var + 100
+            for a_long_var in xrange(1000)
+            if a_long_var % 10]
+      """),
     SPLIT_PENALTY_AFTER_OPENING_BRACKET=textwrap.dedent("""\
       The penalty for splitting right after the opening bracket."""),
     SPLIT_PENALTY_AFTER_UNARY_OPERATOR=textwrap.dedent("""\
@@ -183,6 +203,9 @@ _STYLE_HELP = dict(
     SPLIT_PENALTY_BITWISE_OPERATOR=textwrap.dedent("""\
       The penalty of splitting the line around the '&', '|', and '^'
       operators."""),
+    SPLIT_PENALTY_COMPREHENSION=textwrap.dedent("""\
+      The penalty for splitting a list comprehension or generator
+      expression."""),
     SPLIT_PENALTY_EXCESS_CHARACTER=textwrap.dedent("""\
       The penalty for characters over the column limit."""),
     SPLIT_PENALTY_FOR_ADDED_LINE_SPLIT=textwrap.dedent("""\
@@ -235,18 +258,22 @@ def CreatePEP8Style():
       SPLIT_ARGUMENTS_WHEN_COMMA_TERMINATED=False,
       SPLIT_BEFORE_BITWISE_OPERATOR=True,
       SPLIT_BEFORE_DICT_SET_GENERATOR=True,
+      SPLIT_BEFORE_EXPRESSION_AFTER_OPENING_PAREN=False,
       SPLIT_BEFORE_FIRST_ARGUMENT=False,
       SPLIT_BEFORE_LOGICAL_OPERATOR=True,
       SPLIT_BEFORE_NAMED_ASSIGNS=True,
+      SPLIT_COMPLEX_COMPREHENSION=False,
       SPLIT_PENALTY_AFTER_OPENING_BRACKET=30,
       SPLIT_PENALTY_AFTER_UNARY_OPERATOR=10000,
       SPLIT_PENALTY_BEFORE_IF_EXPR=0,
       SPLIT_PENALTY_BITWISE_OPERATOR=300,
+      SPLIT_PENALTY_COMPREHENSION=80,
       SPLIT_PENALTY_EXCESS_CHARACTER=4500,
       SPLIT_PENALTY_FOR_ADDED_LINE_SPLIT=30,
       SPLIT_PENALTY_IMPORT_NAMES=0,
       SPLIT_PENALTY_LOGICAL_OPERATOR=300,
-      USE_TABS=False,)
+      USE_TABS=False,
+  )
 
 
 def CreateGoogleStyle():
@@ -260,6 +287,8 @@ def CreateGoogleStyle():
   style['SPACE_BETWEEN_ENDING_COMMA_AND_CLOSING_BRACKET'] = False
   style['SPLIT_BEFORE_LOGICAL_OPERATOR'] = False
   style['SPLIT_BEFORE_BITWISE_OPERATOR'] = False
+  style['SPLIT_COMPLEX_COMPREHENSION'] = True
+  style['SPLIT_PENALTY_COMPREHENSION'] = 2100
   return style
 
 
@@ -270,6 +299,7 @@ def CreateChromiumStyle():
   style['INDENT_WIDTH'] = 2
   style['JOIN_MULTIPLE_LINES'] = False
   style['SPLIT_BEFORE_BITWISE_OPERATOR'] = True
+  style['SPLIT_BEFORE_EXPRESSION_AFTER_OPENING_PAREN'] = True
   return style
 
 
@@ -292,7 +322,8 @@ _STYLE_NAME_TO_FACTORY = dict(
     pep8=CreatePEP8Style,
     chromium=CreateChromiumStyle,
     google=CreateGoogleStyle,
-    facebook=CreateFacebookStyle,)
+    facebook=CreateFacebookStyle,
+)
 
 _DEFAULT_STYLE_TO_FACTORY = [
     (CreateChromiumStyle(), CreateChromiumStyle),
@@ -356,18 +387,22 @@ _STYLE_OPTION_VALUE_CONVERTER = dict(
     SPLIT_ARGUMENTS_WHEN_COMMA_TERMINATED=_BoolConverter,
     SPLIT_BEFORE_BITWISE_OPERATOR=_BoolConverter,
     SPLIT_BEFORE_DICT_SET_GENERATOR=_BoolConverter,
+    SPLIT_BEFORE_EXPRESSION_AFTER_OPENING_PAREN=_BoolConverter,
     SPLIT_BEFORE_FIRST_ARGUMENT=_BoolConverter,
     SPLIT_BEFORE_LOGICAL_OPERATOR=_BoolConverter,
     SPLIT_BEFORE_NAMED_ASSIGNS=_BoolConverter,
+    SPLIT_COMPLEX_COMPREHENSION=_BoolConverter,
     SPLIT_PENALTY_AFTER_OPENING_BRACKET=int,
     SPLIT_PENALTY_AFTER_UNARY_OPERATOR=int,
     SPLIT_PENALTY_BEFORE_IF_EXPR=int,
     SPLIT_PENALTY_BITWISE_OPERATOR=int,
+    SPLIT_PENALTY_COMPREHENSION=int,
     SPLIT_PENALTY_EXCESS_CHARACTER=int,
     SPLIT_PENALTY_FOR_ADDED_LINE_SPLIT=int,
     SPLIT_PENALTY_IMPORT_NAMES=int,
     SPLIT_PENALTY_LOGICAL_OPERATOR=int,
-    USE_TABS=_BoolConverter,)
+    USE_TABS=_BoolConverter,
+)
 
 
 def CreateStyleFromConfig(style_config):
@@ -507,9 +542,10 @@ DEFAULT_STYLE_FACTORY = CreatePEP8Style
 _GLOBAL_STYLE_FACTORY = CreatePEP8Style
 
 # The name of the file to use for global style definition.
-GLOBAL_STYLE = (os.path.join(
-    os.getenv('XDG_CONFIG_HOME') or os.path.expanduser('~/.config'), 'yapf',
-    'style'))
+GLOBAL_STYLE = (
+    os.path.join(
+        os.getenv('XDG_CONFIG_HOME') or os.path.expanduser('~/.config'), 'yapf',
+        'style'))
 
 # The name of the file to use for directory-local style definition.
 LOCAL_STYLE = '.style.yapf'

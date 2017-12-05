@@ -61,8 +61,9 @@ class SplitPenaltyTest(unittest.TestCase):
       if pytree_utils.NodeName(tree) in pytree_utils.NONSEMANTIC_TOKENS:
         return []
       if isinstance(tree, pytree.Leaf):
-        return [(tree.value, pytree_utils.GetNodeAnnotation(
-            tree, pytree_utils.Annotation.SPLIT_PENALTY))]
+        return [(tree.value,
+                 pytree_utils.GetNodeAnnotation(
+                     tree, pytree_utils.Annotation.SPLIT_PENALTY))]
       nodes = []
       for node in tree.children:
         nodes += FlattenRec(node)
@@ -233,6 +234,23 @@ class SplitPenaltyTest(unittest.TestCase):
         ('2', None),
         (',', UNBREAKABLE),
         ('3', None),
+        (')', VERY_STRONGLY_CONNECTED),
+    ])
+
+    # Test single generator argument.
+    code = 'max(i for i in xrange(10))\n'
+    tree = self._ParseAndComputePenalties(code)
+    self._CheckPenalties(tree, [
+        ('max', None),
+        ('(', UNBREAKABLE),
+        ('i', 0),
+        ('for', 0),
+        ('i', STRONGLY_CONNECTED),
+        ('in', STRONGLY_CONNECTED),
+        ('xrange', STRONGLY_CONNECTED),
+        ('(', UNBREAKABLE),
+        ('10', STRONGLY_CONNECTED),
+        (')', VERY_STRONGLY_CONNECTED),
         (')', VERY_STRONGLY_CONNECTED),
     ])
 

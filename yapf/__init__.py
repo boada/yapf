@@ -38,7 +38,7 @@ from yapf.yapflib import py3compat
 from yapf.yapflib import style
 from yapf.yapflib import yapf_api
 
-__version__ = '0.18.0'
+__version__ = '0.20.0'
 
 
 def main(argv):
@@ -154,6 +154,8 @@ def main(argv):
 
     original_source = []
     while True:
+      if sys.stdin.closed:
+        break
       try:
         # Use 'raw_input' instead of 'sys.stdin.read', because otherwise the
         # user will need to hit 'Ctrl-D' more than once if they're inputting
@@ -201,7 +203,7 @@ def FormatFiles(filenames,
                 no_local_style=False,
                 in_place=False,
                 print_diff=False,
-                verify=True,
+                verify=False,
                 parallel=False,
                 verbose=False):
   """Format a list of files.
@@ -251,7 +253,7 @@ def _FormatFile(filename,
                 no_local_style=False,
                 in_place=False,
                 print_diff=False,
-                verify=True,
+                verify=False,
                 verbose=False):
   if verbose:
     print('Reformatting %s' % filename)

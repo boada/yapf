@@ -28,6 +28,7 @@ NAMED_ASSIGN = 11000
 DOTTED_NAME = 4000
 VERY_STRONGLY_CONNECTED = 3500
 STRONGLY_CONNECTED = 3000
+CONNECTED = 500
 
 OR_TEST = 1000
 AND_TEST = 1100
@@ -133,6 +134,9 @@ class _SplitPenaltyAssigner(pytree_visitor.PyTreeVisitor):
       if isinstance(child, pytree.Leaf) and child.value == ',':
         _SetUnbreakable(child)
       index += 1
+    for child in node.children:
+      if pytree_utils.NodeName(child) == 'atom':
+        _IncreasePenalty(child, CONNECTED)
 
   def Visit_argument(self, node):  # pylint: disable=invalid-name
     # argument ::= test [comp_for] | test '=' test  # Really [keyword '='] test
@@ -175,7 +179,6 @@ class _SplitPenaltyAssigner(pytree_visitor.PyTreeVisitor):
 
   def Visit_trailer(self, node):  # pylint: disable=invalid-name
     # trailer ::= '(' [arglist] ')' | '[' subscriptlist ']' | '.' NAME
-    self.DefaultNodeVisit(node)
     if node.children[0].value == '.':
       self._SetUnbreakableOnChildren(node)
       _SetSplitPenalty(node.children[1], DOTTED_NAME)
@@ -187,8 +190,13 @@ class _SplitPenaltyAssigner(pytree_visitor.PyTreeVisitor):
       if name in {'argument', 'comparison'}:
         # Don't split an argument list with one element if at all possible.
         _SetStronglyConnected(node.children[1])
-        _SetSplitPenalty(
-            _FirstChildNode(node.children[1]), ONE_ELEMENT_ARGUMENT)
+        if (len(node.children[1].children) > 1 and
+            pytree_utils.NodeName(node.children[1].children[1]) == 'comp_for'):
+          # Don't penalize spliting before a comp_for expression.
+          _SetSplitPenalty(_FirstChildNode(node.children[1]), 0)
+        else:
+          _SetSplitPenalty(
+              _FirstChildNode(node.children[1]), ONE_ELEMENT_ARGUMENT)
       elif (pytree_utils.NodeName(node.children[0]) == 'LSQB' and
             len(node.children[1].children) > 2 and
             (name.endswith('_test') or name.endswith('_expr'))):
@@ -213,6 +221,7 @@ class _SplitPenaltyAssigner(pytree_visitor.PyTreeVisitor):
       }:
         # Don't split an argument list with one element if at all possible.
         _SetStronglyConnected(node.children[1], node.children[2])
+    self.DefaultNodeVisit(node)
 
   def Visit_power(self, node):  # pylint: disable=invalid-name,missing-docstring
     # power ::= atom trailer* ['**' factor]

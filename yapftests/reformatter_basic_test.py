@@ -457,20 +457,89 @@ class BasicReformatterTest(yapf_test_helper.YAPFTest):
     uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
     self.assertCodeEqual(expected_formatted_code, reformatter.Reformat(uwlines))
 
-  def testOpeningAndClosingBrackets(self):
+  def testListComprehensionPreferOneLine(self):
     unformatted_code = textwrap.dedent("""\
-        foo( (1, ) )
-        foo( ( 1, 2, 3  ) )
-        foo( ( 1, 2, 3, ) )
+        def given(y):
+            long_variable_name = [
+                long_var_name + 1
+                for long_var_name in ()
+                if long_var_name == 2]
         """)
     expected_formatted_code = textwrap.dedent("""\
-        foo((1,))
-        foo((1, 2, 3))
-        foo((
-            1,
-            2,
-            3,))
+        def given(y):
+          long_variable_name = [
+              long_var_name + 1 for long_var_name in () if long_var_name == 2
+          ]
         """)
+    uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
+    self.assertCodeEqual(expected_formatted_code, reformatter.Reformat(uwlines))
+
+  def testListComprehensionPreferOneLineOverArithmeticSplit(self):
+    unformatted_code = textwrap.dedent("""\
+        def given(used_identifiers):
+          return (sum(len(identifier)
+                      for identifier in used_identifiers) / len(used_identifiers))
+        """)
+    expected_formatted_code = textwrap.dedent("""\
+        def given(used_identifiers):
+          return (sum(len(identifier) for identifier in used_identifiers) /
+                  len(used_identifiers))
+        """)
+    uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
+    self.assertCodeEqual(expected_formatted_code, reformatter.Reformat(uwlines))
+
+  def testListComprehensionPreferThreeLinesForLineWrap(self):
+    unformatted_code = textwrap.dedent("""\
+        def given(y):
+            long_variable_name = [
+                long_var_name + 1
+                for long_var_name, number_two in ()
+                if long_var_name == 2 and number_two == 3]
+        """)
+    expected_formatted_code = textwrap.dedent("""\
+        def given(y):
+          long_variable_name = [
+              long_var_name + 1
+              for long_var_name, number_two in ()
+              if long_var_name == 2 and number_two == 3
+          ]
+        """)
+    uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
+    self.assertCodeEqual(expected_formatted_code, reformatter.Reformat(uwlines))
+
+  def testListComprehensionPreferNoBreakForTrivialExpression(self):
+    unformatted_code = textwrap.dedent("""\
+        def given(y):
+            long_variable_name = [
+                long_var_name
+                for long_var_name, number_two in ()
+                if long_var_name == 2 and number_two == 3]
+        """)
+    expected_formatted_code = textwrap.dedent("""\
+        def given(y):
+          long_variable_name = [
+              long_var_name for long_var_name, number_two in ()
+              if long_var_name == 2 and number_two == 3
+          ]
+        """)
+    uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
+    self.assertCodeEqual(expected_formatted_code, reformatter.Reformat(uwlines))
+
+  def testOpeningAndClosingBrackets(self):
+    unformatted_code = """\
+foo( (1, ) )
+foo( ( 1, 2, 3  ) )
+foo( ( 1, 2, 3, ) )
+"""
+    expected_formatted_code = """\
+foo((1,))
+foo((1, 2, 3))
+foo((
+    1,
+    2,
+    3,
+))
+"""
     uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
     self.assertCodeEqual(expected_formatted_code, reformatter.Reformat(uwlines))
 
@@ -489,13 +558,12 @@ class BasicReformatterTest(yapf_test_helper.YAPFTest):
     # If the queue isn't properly constructed, then a token in the middle of the
     # line may be selected as the one with least penalty. The tokens after that
     # one are then splatted at the end of the line with no formatting.
-    # FIXME(morbo): The formatting here isn't ideal.
     unformatted_code = """\
 find_symbol(node.type) + "< " + " ".join(find_pattern(n) for n in node.child) + " >"
 """
     expected_formatted_code = """\
-find_symbol(
-    node.type) + "< " + " ".join(find_pattern(n) for n in node.child) + " >"
+find_symbol(node.type) + "< " + " ".join(
+    find_pattern(n) for n in node.child) + " >"
 """
     uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
     self.assertCodeEqual(expected_formatted_code, reformatter.Reformat(uwlines))
@@ -797,15 +865,16 @@ xxxxxxxxxxx, yyyyyyyyyyyy, vvvvvvvvv)
     self.assertCodeEqual(code, reformatter.Reformat(uwlines))
 
   def testFunctionCallContinuationLine(self):
-    code = textwrap.dedent("""\
-        class foo:
+    code = """\
+class foo:
 
-          def bar(self, node, name, n=1):
-            if True:
-              if True:
-                return [(aaaaaaaaaa, bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb(
-                    cccc, ddddddddddddddddddddddddddddddddddddd))]
-        """)
+  def bar(self, node, name, n=1):
+    if True:
+      if True:
+        return [(aaaaaaaaaa,
+                 bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb(
+                     cccc, ddddddddddddddddddddddddddddddddddddd))]
+"""
     uwlines = yapf_test_helper.ParseAndUnwrap(code)
     self.assertCodeEqual(code, reformatter.Reformat(uwlines))
 
@@ -886,7 +955,8 @@ xxxxxxxxxxx, yyyyyyyyyyyy, vvvvvvvvv)
           if True:
             if True:
               python_files.extend(
-                  os.path.join(filename, f) for f in os.listdir(filename)
+                  os.path.join(filename, f)
+                  for f in os.listdir(filename)
                   if IsPythonFile(os.path.join(filename, f)))
         """)
     uwlines = yapf_test_helper.ParseAndUnwrap(code)
@@ -1037,13 +1107,12 @@ xxxxxxxxxxx, yyyyyyyyyyyy, vvvvvvvvv)
     self.assertCodeEqual(code, reformatter.Reformat(uwlines))
 
   def testTrailerOnSingleLine(self):
-    code = textwrap.dedent("""\
-        urlpatterns = patterns('',
-                               url(r'^$', 'homepage_view'),
-                               url(r'^/login/$', 'login_view'),
-                               url(r'^/login/$', 'logout_view'),
-                               url(r'^/user/(?P<username>\\w+)/$', 'profile_view'))
-        """)
+    code = """\
+urlpatterns = patterns('', url(r'^$', 'homepage_view'),
+                       url(r'^/login/$', 'login_view'),
+                       url(r'^/login/$', 'logout_view'),
+                       url(r'^/user/(?P<username>\\w+)/$', 'profile_view'))
+"""
     uwlines = yapf_test_helper.ParseAndUnwrap(code)
     self.assertCodeEqual(code, reformatter.Reformat(uwlines))
 
@@ -1103,6 +1172,15 @@ xxxxxxxxxxx, yyyyyyyyyyyy, vvvvvvvvv)
             \\
             some_thing()
         """)
+    uwlines = yapf_test_helper.ParseAndUnwrap(code)
+    self.assertCodeEqual(code, reformatter.Reformat(uwlines))
+
+  def testContinuationMarkerAfterStringWithContinuation(self):
+    code = """\
+s = 'foo \\
+    bar' \\
+    .format()
+"""
     uwlines = yapf_test_helper.ParseAndUnwrap(code)
     self.assertCodeEqual(code, reformatter.Reformat(uwlines))
 
@@ -1212,7 +1290,8 @@ xxxxxxxxxxx, yyyyyyyyyyyy, vvvvvvvvv)
     code = textwrap.dedent("""\
         foo = {
             variable: 'hello world. How are you today?'
-            for variable in fnord if variable != 37
+            for variable in fnord
+            if variable != 37
         }
         """)
     uwlines = yapf_test_helper.ParseAndUnwrap(code)
@@ -2191,9 +2270,11 @@ xxxxxxxxxxx, yyyyyyyyyyyy, vvvvvvvvv)
   def testEllipses(self):
     unformatted_code = textwrap.dedent("""\
         X=...
+        Y = X if ... else X
         """)
     expected_code = textwrap.dedent("""\
         X = ...
+        Y = X if ... else X
         """)
     uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
     self.assertEqual(expected_code, reformatter.Reformat(uwlines))
@@ -2314,6 +2395,27 @@ xxxxxxxxxxx, yyyyyyyyyyyy, vvvvvvvvv)
           """)
       uwlines = yapf_test_helper.ParseAndUnwrap(code)
       self.assertCodeEqual(code, reformatter.Reformat(uwlines))
+    finally:
+      style.SetGlobalStyle(style.CreateChromiumStyle())
+
+  def testAsyncAsNonKeyword(self):
+    try:
+      style.SetGlobalStyle(style.CreatePEP8Style())
+
+      # In Python 2, async may be used as a non-keyword identifier.
+      code = textwrap.dedent("""\
+          from util import async
+
+
+          class A(object):
+              def foo(self):
+                  async.run()
+
+              def bar(self):
+                  pass
+          """)
+      uwlines = yapf_test_helper.ParseAndUnwrap(code)
+      self.assertCodeEqual(code, reformatter.Reformat(uwlines, verify=False))
     finally:
       style.SetGlobalStyle(style.CreateChromiumStyle())
 
