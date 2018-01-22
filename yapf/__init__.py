@@ -1,4 +1,4 @@
-# Copyright 2015-2017 Google Inc. All Rights Reserved.
+# Copyright 2015 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ from yapf.yapflib import py3compat
 from yapf.yapflib import style
 from yapf.yapflib import yapf_api
 
-__version__ = '0.20.0'
+__version__ = '0.20.1'
 
 
 def main(argv):

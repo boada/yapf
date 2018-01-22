@@ -1,4 +1,4 @@
-# Copyright 2015-2017 Google Inc. All Rights Reserved.
+# Copyright 2015 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -122,11 +122,11 @@ class FormatToken(object):
       spaces: (int) The number of spaces to place before the token.
       indent_level: (int) The indentation level.
     """
-    indent_char = '\t' if style.Get('USE_TABS') else ' '
-    token_indent_char = indent_char if newlines_before > 0 else ' '
-    indent_before = (
-        indent_char * indent_level * style.Get('INDENT_WIDTH') +
-        token_indent_char * spaces)
+    if style.Get('USE_TABS'):
+      indent_before = '\t' * indent_level + ' ' * spaces
+    else:
+      indent_before = (
+          ' ' * indent_level * style.Get('INDENT_WIDTH') + ' ' * spaces)
 
     if self.is_comment:
       comment_lines = [s.lstrip() for s in self.value.splitlines()]

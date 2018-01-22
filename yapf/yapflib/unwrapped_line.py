@@ -1,4 +1,4 @@
-# Copyright 2015-2017 Google Inc. All Rights Reserved.
+# Copyright 2015 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -271,8 +271,9 @@ def _SpaceRequiredBetween(left, right):
     # A typed argument should have a space after the colon.
     return True
   if left.is_string:
-    if (rval == '=' and format_token.Subtype.DEFAULT_OR_NAMED_ASSIGN_ARG_LIST in
-        right.subtypes):
+    if (rval == '=' and
+        format_token.Subtype.DEFAULT_OR_NAMED_ASSIGN_ARG_LIST in right.subtypes
+       ):
       # If there is a type hint, then we don't want to add a space between the
       # equal sign and the hint.
       return False
