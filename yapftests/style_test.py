@@ -225,13 +225,11 @@ class StyleFromDict(unittest.TestCase):
 
   def testDefaultBasedOnStyleBadDict(self):
     self.assertRaisesRegexp(style.StyleConfigError, 'Unknown style option',
-                            style.CreateStyleFromConfig, {
-                                'based_on_styl': 'pep8'
-                            })
+                            style.CreateStyleFromConfig,
+                            {'based_on_styl': 'pep8'})
     self.assertRaisesRegexp(style.StyleConfigError, 'not a valid',
-                            style.CreateStyleFromConfig, {
-                                'INDENT_WIDTH': 'FOUR'
-                            })
+                            style.CreateStyleFromConfig,
+                            {'INDENT_WIDTH': 'FOUR'})
 
 
 class StyleFromCommandLine(unittest.TestCase):
@@ -255,6 +253,14 @@ class StyleFromCommandLine(unittest.TestCase):
         ' blank_line_before_nested_class_or_def:True}')
     self.assertTrue(_LooksLikeChromiumStyle(cfg))
     self.assertEqual(cfg['INDENT_WIDTH'], 2)
+
+  def testDefaultBasedOnExplicitlyUnicodeTypeString(self):
+    cfg = style.CreateStyleFromConfig(u'{}')
+    self.assertIsInstance(cfg, dict)
+
+  def testDefaultBasedOnDetaultTypeString(self):
+    cfg = style.CreateStyleFromConfig('{}')
+    self.assertIsInstance(cfg, dict)
 
   def testDefaultBasedOnStyleBadString(self):
     self.assertRaisesRegexp(style.StyleConfigError, 'Unknown style option',

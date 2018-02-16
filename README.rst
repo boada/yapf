@@ -36,7 +36,7 @@ The ultimate goal is that the code YAPF produces is as good as the code that a
 programmer would write if they were following the style guide. It takes away
 some of the drudgery of maintaining your code.
 
-Try out YAPF with this `online demo <https://yapf.herokuapp.com>`_.
+Try out YAPF with this `online demo <https://yapf.now.sh>`_.
 
 .. footer::
 
@@ -78,7 +78,8 @@ possible to run:
 Python versions
 ===============
 
-YAPF supports Python 2.7 and 3.4.1+.
+YAPF supports Python 2.7 and 3.6.4+. (Note that some Python 3 features may fail
+to parse with Python versions before 3.6.4.)
 
 YAPF requires the code it formats to be valid Python for the version YAPF itself
 runs under. Therefore, if you format Python 3 code with YAPF, run YAPF itself
@@ -466,7 +467,7 @@ Knobs
 
 ``SPLIT_COMPLEX_COMPREHENSION``
     For list comprehensions and generator expressions with multiple clauses
-    (e.g mutiple "for" calls, "if" filter expressions) and which need to be
+    (e.g multiple "for" calls, "if" filter expressions) and which need to be
     reflowed, split each clause onto its own line. For example:
 
     .. code-block:: python

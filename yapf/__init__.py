@@ -38,7 +38,7 @@ from yapf.yapflib import py3compat
 from yapf.yapflib import style
 from yapf.yapflib import yapf_api
 
-__version__ = '0.20.1'
+__version__ = '0.20.2'
 
 
 def main(argv):
@@ -133,8 +133,12 @@ def main(argv):
     print('yapf {}'.format(__version__))
     return 0
 
+  style_config = args.style
+
   if args.style_help:
-    style.SetGlobalStyle(style.CreateStyleFromConfig(args.style))
+    if style_config is None and not args.no_local_style:
+      style_config = file_resources.GetDefaultStyleForDir(os.getcwd())
+    style.SetGlobalStyle(style.CreateStyleFromConfig(style_config))
     print('[style]')
     for option, docstring in sorted(style.Help().items()):
       for line in docstring.splitlines():
@@ -166,7 +170,6 @@ def main(argv):
       except EOFError:
         break
 
-    style_config = args.style
     if style_config is None and not args.no_local_style:
       style_config = file_resources.GetDefaultStyleForDir(os.getcwd())
 
