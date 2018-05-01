@@ -58,6 +58,28 @@ class Subtype(object):
   TYPED_NAME_ARG_LIST = 20
 
 
+def _TabbedContinuationAlignPadding(spaces, align_style, tab_width,
+                                    continuation_indent_width):
+  """Build padding string for continuation alignment in tabbed indentation.
+
+  Arguments:
+    spaces: (int) The number of spaces to place before the token for alignment.
+    align_style: (str) The alignment style for continuation lines.
+    tab_width: (int) Number of columns of each tab character.
+    continuation_indent_width: (int) Indent columns for line continuations.
+
+  Returns:
+    A padding string for alignment with style specified by align_style option.
+  """
+  if align_style == 'FIXED':
+    if spaces > 0:
+      return '\t' * int(continuation_indent_width / tab_width)
+    return ''
+  elif align_style == 'VALIGN-RIGHT':
+    return '\t' * int((spaces + tab_width - 1) / tab_width)
+  return ' ' * spaces
+
+
 class FormatToken(object):
   """A wrapper around pytree Leaf nodes.
 
@@ -71,6 +93,10 @@ class FormatToken(object):
       this is the first token in the unwrapped line.
     matching_bracket: If a bracket token ('[', '{', or '(') the matching
       bracket.
+    container_opening: If the object is in a container, this points to its
+      opening bracket.
+    container_elements: If this is the start of a container, a list of the
+      elements in the container.
     whitespace_prefix: The prefix for the whitespace.
     spaces_required_before: The number of spaces required before a token. This
       is a lower-bound for the formatter and not a hard requirement. For
@@ -96,6 +122,8 @@ class FormatToken(object):
     self.next_token = None
     self.previous_token = None
     self.matching_bracket = None
+    self.container_opening = None
+    self.container_elements = []
     self.whitespace_prefix = ''
     self.can_break_before = False
     self.must_break_before = False
@@ -123,7 +151,12 @@ class FormatToken(object):
       indent_level: (int) The indentation level.
     """
     if style.Get('USE_TABS'):
-      indent_before = '\t' * indent_level + ' ' * spaces
+      if newlines_before > 0:
+        indent_before = '\t' * indent_level + _TabbedContinuationAlignPadding(
+            spaces, style.Get('CONTINUATION_ALIGN_STYLE'),
+            style.Get('INDENT_WIDTH'), style.Get('CONTINUATION_INDENT_WIDTH'))
+      else:
+        indent_before = '\t' * indent_level + ' ' * spaces
     else:
       indent_before = (
           ' ' * indent_level * style.Get('INDENT_WIDTH') + ' ' * spaces)
@@ -273,13 +306,14 @@ class FormatToken(object):
   @property
   @py3compat.lru_cache()
   def is_multiline_string(self):
+    """A multiline string."""
     if py3compat.PY3:
-      prefix = "("
-      prefix += "r|u|R|U|f|F|fr|Fr|fR|FR|rf|rF|Rf|RF"  # strings
-      prefix += "|b|B|br|Br|bR|BR|rb|rB|Rb|RB"  # bytes
-      prefix += ")?"
+      prefix = '('
+      prefix += 'r|u|R|U|f|F|fr|Fr|fR|FR|rf|rF|Rf|RF'  # strings
+      prefix += '|b|B|br|Br|bR|BR|rb|rB|Rb|RB'  # bytes
+      prefix += ')?'
     else:
-      prefix = "[uUbB]?[rR]?"
+      prefix = '[uUbB]?[rR]?'
 
     regex = r'^{prefix}(?P<delim>"""|\'\'\').*(?P=delim)$'.format(prefix=prefix)
     return (self.is_string and

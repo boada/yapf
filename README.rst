@@ -322,8 +322,24 @@ Knobs
             def method():
                 pass
 
+``BLANK_LINE_BEFORE_MODULE_DOCSTRING``
+    Insert a blank line before a module docstring.
+
 ``BLANK_LINE_BEFORE_CLASS_DOCSTRING``
     Insert a blank line before a class-level docstring.
+
+``BLANK_LINES_AROUND_TOP_LEVEL_DEFINITION``
+    Sets the number of desired blank lines surrounding top-level function and
+    class definitions. For example:
+
+    .. code-block:: python
+
+        class Foo:
+            pass
+                           # <------ having two blank lines here
+                           # <------ is the default setting
+        class Bar:
+            pass
 
 ``COALESCE_BRACKETS``
     Do not split consecutive brackets. Only relevant when
@@ -350,6 +366,20 @@ Knobs
 
 ``COLUMN_LIMIT``
     The column limit (or max line-length)
+
+``CONTINUATION_ALIGN_STYLE``
+    The style for continuation alignment. Possible values are:
+
+    - SPACE: Use spaces for continuation alignment. This is default behavior.
+    - FIXED: Use fixed number (CONTINUATION_INDENT_WIDTH) of columns
+      (ie: CONTINUATION_INDENT_WIDTH/INDENT_WIDTH tabs) for continuation
+      alignment.
+    - VALIGN-RIGHT: Vertically align continuation lines with indent characters.
+      Slightly right (one more indent character) if cannot vertically align
+      continuation lines with indent characters.
+
+      For options ``FIXED``, and ``VALIGN-RIGHT`` are only available when
+      ``USE_TABS`` is enabled.
 
 ``CONTINUATION_INDENT_WIDTH``
     Indent width used for line continuations.
@@ -438,6 +468,10 @@ Knobs
 ``SPLIT_BEFORE_BITWISE_OPERATOR``
     Set to ``True`` to prefer splitting before ``&``, ``|`` or ``^`` rather
     than after.
+
+``SPLIT_BEFORE_CLOSING_BRACKET``
+    Split before the closing bracket if a list or dict literal doesn't fit on
+    a single line.
 
 ``SPLIT_BEFORE_DICT_SET_GENERATOR``
     Split before a dictionary or set generator (comp_for). For example, note

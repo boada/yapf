@@ -161,6 +161,9 @@ class FormatDecisionState(object):
         if not style.Get('ALLOW_SPLIT_BEFORE_DICT_VALUE'):
           return False
 
+    if previous and previous.value == '.' and current.value == '.':
+      return False
+
     return current.can_break_before
 
   def MustSplit(self):
@@ -177,7 +180,8 @@ class FormatDecisionState(object):
     if not previous:
       return False
 
-    if self.stack[-1].split_before_closing_bracket and current.value in '}]':
+    if (self.stack[-1].split_before_closing_bracket and
+        current.value in '}]' and style.Get('SPLIT_BEFORE_CLOSING_BRACKET')):
       # Split before the closing bracket if we can.
       return current.node_split_penalty != split_penalty.UNBREAKABLE
 
@@ -435,9 +439,20 @@ class FormatDecisionState(object):
           if self._FitsOnLine(previous, previous.matching_bracket):
             return False
         elif not self._FitsOnLine(previous, previous.matching_bracket):
+          if len(previous.container_elements) == 1:
+            return False
+
+          elements = previous.container_elements + [previous.matching_bracket]
+          i = 1
+          while i < len(elements):
+            if (not elements[i - 1].OpensScope() and
+                not self._FitsOnLine(elements[i - 1], elements[i])):
+              return True
+            i += 1
+
           if (self.column_limit - self.column) / float(self.column_limit) < 0.3:
             # Try not to squish all of the arguments off to the right.
-            return current.next_token != previous.matching_bracket
+            return True
       else:
         # Split after the opening of a container if it doesn't fit on the
         # current line.

@@ -71,6 +71,11 @@ _STYLE_HELP = dict(
             ..."""),
     BLANK_LINE_BEFORE_CLASS_DOCSTRING=textwrap.dedent("""\
       Insert a blank line before a class-level docstring."""),
+    BLANK_LINE_BEFORE_MODULE_DOCSTRING=textwrap.dedent("""\
+      Insert a blank line before a module docstring."""),
+    BLANK_LINES_AROUND_TOP_LEVEL_DEFINITION=textwrap.dedent("""\
+      Number of blank lines surrounding top-level function and class
+      definitions."""),
     COALESCE_BRACKETS=textwrap.dedent("""\
       Do not split consecutive brackets. Only relevant when
       dedent_closing_brackets is set. For example:
@@ -90,6 +95,21 @@ _STYLE_HELP = dict(
          })"""),
     COLUMN_LIMIT=textwrap.dedent("""\
       The column limit."""),
+    CONTINUATION_ALIGN_STYLE=textwrap.dedent("""\
+      The style for continuation alignment. Possible values are:
+
+      - SPACE: Use spaces for continuation alignment. This is default behavior.
+      - FIXED: Use fixed number (CONTINUATION_INDENT_WIDTH) of columns
+        (ie: CONTINUATION_INDENT_WIDTH/INDENT_WIDTH tabs) for continuation
+        alignment.
+      - LESS: Slightly left if cannot vertically align continuation lines with
+        indent characters.
+      - VALIGN-RIGHT: Vertically align continuation lines with indent
+        characters. Slightly right (one more indent character) if cannot
+        vertically align continuation lines with indent characters.
+
+      For options FIXED, and VALIGN-RIGHT are only available when USE_TABS is
+      enabled."""),
     CONTINUATION_INDENT_WIDTH=textwrap.dedent("""\
       Indent width used for line continuations."""),
     DEDENT_CLOSING_BRACKETS=textwrap.dedent("""\
@@ -158,6 +178,9 @@ _STYLE_HELP = dict(
     SPLIT_BEFORE_BITWISE_OPERATOR=textwrap.dedent("""\
       Set to True to prefer splitting before '&', '|' or '^' rather than
       after."""),
+    SPLIT_BEFORE_CLOSING_BRACKET=textwrap.dedent("""\
+      Split before the closing bracket if a list or dict literal doesn't fit on
+      a single line."""),
     SPLIT_BEFORE_DICT_SET_GENERATOR=textwrap.dedent("""\
       Split before a dictionary or set generator (comp_for). For example, note
       the split before the 'for':
@@ -240,8 +263,11 @@ def CreatePEP8Style():
       ALLOW_SPLIT_BEFORE_DICT_VALUE=True,
       BLANK_LINE_BEFORE_NESTED_CLASS_OR_DEF=False,
       BLANK_LINE_BEFORE_CLASS_DOCSTRING=False,
+      BLANK_LINE_BEFORE_MODULE_DOCSTRING=False,
+      BLANK_LINES_AROUND_TOP_LEVEL_DEFINITION=2,
       COALESCE_BRACKETS=False,
       COLUMN_LIMIT=79,
+      CONTINUATION_ALIGN_STYLE='SPACE',
       CONTINUATION_INDENT_WIDTH=4,
       DEDENT_CLOSING_BRACKETS=False,
       EACH_DICT_ENTRY_ON_SEPARATE_LINE=True,
@@ -257,6 +283,7 @@ def CreatePEP8Style():
       SPACES_BEFORE_COMMENT=2,
       SPLIT_ARGUMENTS_WHEN_COMMA_TERMINATED=False,
       SPLIT_BEFORE_BITWISE_OPERATOR=True,
+      SPLIT_BEFORE_CLOSING_BRACKET=True,
       SPLIT_BEFORE_DICT_SET_GENERATOR=True,
       SPLIT_BEFORE_EXPRESSION_AFTER_OPENING_PAREN=False,
       SPLIT_BEFORE_FIRST_ARGUMENT=False,
@@ -285,8 +312,9 @@ def CreateGoogleStyle():
   style['I18N_COMMENT'] = r'#\..*'
   style['I18N_FUNCTION_CALL'] = ['N_', '_']
   style['SPACE_BETWEEN_ENDING_COMMA_AND_CLOSING_BRACKET'] = False
-  style['SPLIT_BEFORE_LOGICAL_OPERATOR'] = False
   style['SPLIT_BEFORE_BITWISE_OPERATOR'] = False
+  style['SPLIT_BEFORE_DICT_SET_GENERATOR'] = False
+  style['SPLIT_BEFORE_LOGICAL_OPERATOR'] = False
   style['SPLIT_COMPLEX_COMPREHENSION'] = True
   style['SPLIT_PENALTY_COMPREHENSION'] = 2100
   return style
@@ -341,6 +369,18 @@ def _GetStyleFactory(style):
   return None
 
 
+def _ContinuationAlignStyleStringConverter(s):
+  """Option value converter for a continuation align style string."""
+  accepted_styles = ('SPACE', 'FIXED', 'VALIGN-RIGHT')
+  if s:
+    r = s.upper()
+    if r not in accepted_styles:
+      raise ValueError('unknown continuation align style: %r' % (s,))
+  else:
+    r = accepted_styles[0]
+  return r
+
+
 def _StringListConverter(s):
   """Option value converter for a comma-separated list of strings."""
   return [part.strip() for part in s.split(',')]
@@ -370,8 +410,11 @@ _STYLE_OPTION_VALUE_CONVERTER = dict(
     ALLOW_SPLIT_BEFORE_DICT_VALUE=_BoolConverter,
     BLANK_LINE_BEFORE_NESTED_CLASS_OR_DEF=_BoolConverter,
     BLANK_LINE_BEFORE_CLASS_DOCSTRING=_BoolConverter,
+    BLANK_LINE_BEFORE_MODULE_DOCSTRING=_BoolConverter,
+    BLANK_LINES_AROUND_TOP_LEVEL_DEFINITION=int,
     COALESCE_BRACKETS=_BoolConverter,
     COLUMN_LIMIT=int,
+    CONTINUATION_ALIGN_STYLE=_ContinuationAlignStyleStringConverter,
     CONTINUATION_INDENT_WIDTH=int,
     DEDENT_CLOSING_BRACKETS=_BoolConverter,
     EACH_DICT_ENTRY_ON_SEPARATE_LINE=_BoolConverter,
@@ -387,6 +430,7 @@ _STYLE_OPTION_VALUE_CONVERTER = dict(
     SPACES_BEFORE_COMMENT=int,
     SPLIT_ARGUMENTS_WHEN_COMMA_TERMINATED=_BoolConverter,
     SPLIT_BEFORE_BITWISE_OPERATOR=_BoolConverter,
+    SPLIT_BEFORE_CLOSING_BRACKET=_BoolConverter,
     SPLIT_BEFORE_DICT_SET_GENERATOR=_BoolConverter,
     SPLIT_BEFORE_EXPRESSION_AFTER_OPENING_PAREN=_BoolConverter,
     SPLIT_BEFORE_FIRST_ARGUMENT=_BoolConverter,

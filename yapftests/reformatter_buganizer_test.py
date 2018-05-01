@@ -28,6 +28,191 @@ class BuganizerFixes(yapf_test_helper.YAPFTest):
   def setUpClass(cls):
     style.SetGlobalStyle(style.CreateChromiumStyle())
 
+  def testB77329955(self):
+    code = """\
+class _():
+
+  @parameterized.named_parameters(
+      ('ReadyExpiredSuccess', True, True, True, None, None),
+      ('SpannerUpdateFails', True, False, True, None, None),
+      ('ReadyNotExpired', False, True, True, True, None),
+      # ('ReadyNotExpiredNotHealthy', False, True, True, False, True),
+      # ('ReadyNotExpiredNotHealthyErrorFails', False, True, True, False, False
+      # ('ReadyNotExpiredNotHealthyUpdateFails', False, False, True, False, True
+  )
+  def _():
+    pass
+"""
+    uwlines = yapf_test_helper.ParseAndUnwrap(code)
+    self.assertCodeEqual(code, reformatter.Reformat(uwlines))
+
+  def testB65197969(self):
+    unformatted_code = """\
+class _():
+
+  def _():
+    return timedelta(seconds=max(float(time_scale), small_interval) *
+                   1.41 ** min(num_attempts, 9))
+"""
+    expected_formatted_code = """\
+class _():
+
+  def _():
+    return timedelta(
+        seconds=max(float(time_scale), small_interval) *
+        1.41**min(num_attempts, 9))
+"""
+    uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
+    self.assertCodeEqual(expected_formatted_code, reformatter.Reformat(uwlines))
+
+  def testB65546221(self):
+    unformatted_code = """\
+SUPPORTED_PLATFORMS = (
+    "centos-6",
+    "centos-7",
+    "ubuntu-1204-precise",
+    "ubuntu-1404-trusty",
+    "ubuntu-1604-xenial",
+    "debian-7-wheezy",
+    "debian-8-jessie",
+    "debian-9-stretch",)
+"""
+    expected_formatted_code = """\
+SUPPORTED_PLATFORMS = (
+    "centos-6",
+    "centos-7",
+    "ubuntu-1204-precise",
+    "ubuntu-1404-trusty",
+    "ubuntu-1604-xenial",
+    "debian-7-wheezy",
+    "debian-8-jessie",
+    "debian-9-stretch",
+)
+"""
+    uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
+    self.assertCodeEqual(expected_formatted_code, reformatter.Reformat(uwlines))
+
+  def testB30500455(self):
+    unformatted_code = """\
+INITIAL_SYMTAB = dict([(name, 'exception#' + name) for name in INITIAL_EXCEPTIONS
+] * [(name, 'type#' + name) for name in INITIAL_TYPES] + [
+    (name, 'function#' + name) for name in INITIAL_FUNCTIONS
+] + [(name, 'const#' + name) for name in INITIAL_CONSTS])
+"""
+    expected_formatted_code = """\
+INITIAL_SYMTAB = dict(
+    [(name, 'exception#' + name) for name in INITIAL_EXCEPTIONS] *
+    [(name, 'type#' + name) for name in INITIAL_TYPES] +
+    [(name, 'function#' + name) for name in INITIAL_FUNCTIONS] +
+    [(name, 'const#' + name) for name in INITIAL_CONSTS])
+"""
+    uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
+    self.assertCodeEqual(expected_formatted_code, reformatter.Reformat(uwlines))
+
+  def testB38343525(self):
+    code = """\
+# This does foo.
+@arg.String('some_path_to_a_file', required=True)
+# This does bar.
+@arg.String('some_path_to_a_file', required=True)
+def f():
+  print 1
+"""
+    uwlines = yapf_test_helper.ParseAndUnwrap(code)
+    self.assertCodeEqual(code, reformatter.Reformat(uwlines))
+
+  def testB37099651(self):
+    unformatted_code = """\
+_MEMCACHE = lazy.MakeLazy(
+    # pylint: disable=g-long-lambda
+    lambda: function.call.mem.clients(FLAGS.some_flag_thingy, default_namespace=_LAZY_MEM_NAMESPACE, allow_pickle=True)
+    # pylint: enable=g-long-lambda
+)
+"""
+    expected_formatted_code = """\
+_MEMCACHE = lazy.MakeLazy(
+    # pylint: disable=g-long-lambda
+    lambda: function.call.mem.clients(
+        FLAGS.some_flag_thingy,
+        default_namespace=_LAZY_MEM_NAMESPACE,
+        allow_pickle=True)
+    # pylint: enable=g-long-lambda
+)
+"""
+    uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
+    self.assertCodeEqual(expected_formatted_code, reformatter.Reformat(uwlines))
+
+  def testB33228502(self):
+    unformatted_code = """\
+def _():
+  success_rate_stream_table = module.Precompute(
+      query_function=module.DefineQueryFunction(
+          name='Response error ratio',
+          expression=((m.Fetch(
+                  m.Raw('monarch.BorgTask',
+                        '/corp/travel/trips2/dispatcher/email/response'),
+                  {'borg_job': module_config.job, 'metric:response_type': 'SUCCESS'}),
+               m.Fetch(m.Raw('monarch.BorgTask', '/corp/travel/trips2/dispatcher/email/response'), {'borg_job': module_config.job}))
+              | m.Window(m.Delta('1h'))
+              | m.Join('successes', 'total')
+              | m.Point(m.VAL['successes'] / m.VAL['total']))))
+"""
+    expected_formatted_code = """\
+def _():
+  success_rate_stream_table = module.Precompute(
+      query_function=module.DefineQueryFunction(
+          name='Response error ratio',
+          expression=(
+              (m.Fetch(
+                  m.Raw('monarch.BorgTask',
+                        '/corp/travel/trips2/dispatcher/email/response'), {
+                            'borg_job': module_config.job,
+                            'metric:response_type': 'SUCCESS'
+                        }),
+               m.Fetch(
+                   m.Raw('monarch.BorgTask',
+                         '/corp/travel/trips2/dispatcher/email/response'),
+                   {'borg_job': module_config.job}))
+              | m.Window(m.Delta('1h'))
+              | m.Join('successes', 'total')
+              | m.Point(m.VAL['successes'] / m.VAL['total']))))
+"""
+    uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
+    self.assertCodeEqual(expected_formatted_code, reformatter.Reformat(uwlines))
+
+  def testB30394228(self):
+    code = """\
+class _():
+
+  def _(self):
+    return some.randome.function.calling(
+        wf, None, alert.Format(alert.subject, alert=alert, threshold=threshold),
+        alert.Format(alert.body, alert=alert, threshold=threshold),
+        alert.html_formatting)
+"""
+    uwlines = yapf_test_helper.ParseAndUnwrap(code)
+    self.assertCodeEqual(code, reformatter.Reformat(uwlines))
+
+  def testB65246454(self):
+    unformatted_code = """\
+class _():
+
+  def _(self):
+    self.assertEqual({i.id
+                      for i in successful_instances},
+                     {i.id
+                      for i in self._statuses.successful_instances})
+"""
+    expected_formatted_code = """\
+class _():
+
+  def _(self):
+    self.assertEqual({i.id for i in successful_instances},
+                     {i.id for i in self._statuses.successful_instances})
+"""
+    uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
+    self.assertCodeEqual(expected_formatted_code, reformatter.Reformat(uwlines))
+
   def testB67935450(self):
     unformatted_code = """\
 def _():
@@ -399,8 +584,8 @@ def _():
     expected_formatted_code = textwrap.dedent("""\
         class _():
           def _():
-            hints.append(('hg tag -f -l -r %s %s # %s' %
-                          (short(ctx.node()), candidatetag, firstline))[:78])
+            hints.append(('hg tag -f -l -r %s %s # %s' % (short(
+                ctx.node()), candidatetag, firstline))[:78])
         """)
     uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
     self.assertCodeEqual(expected_formatted_code, reformatter.Reformat(uwlines))

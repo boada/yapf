@@ -222,6 +222,13 @@ class PyTreeUnwrapper(pytree_visitor.PyTreeVisitor):
     for child in node.children[index].children:
       self.Visit(child)
 
+  def Visit_decorator(self, node):  # pylint: disable=invalid-name
+    for child in node.children:
+      self.Visit(child)
+      if (pytree_utils.NodeName(child) == 'COMMENT' and
+          child == node.children[0]):
+        self._StartNewLine()
+
   def Visit_decorators(self, node):  # pylint: disable=invalid-name
     for child in node.children:
       self._StartNewLine()
@@ -306,6 +313,11 @@ def _MatchBrackets(uwline):
       token.matching_bracket = bracket_stack[-1]
       bracket_stack.pop()
 
+    for bracket in bracket_stack:
+      if id(pytree_utils.GetOpeningBracket(token.node)) == id(bracket.node):
+        bracket.container_elements.append(token)
+        token.container_opening = bracket
+
 
 def _AdjustSplitPenalty(uwline):
   """Visit the node and adjust the split penalties if needed.
@@ -366,11 +378,6 @@ def _ContainsComments(node):
 
 def _SetMustSplitOnFirstLeaf(node):
   """Set the "must split" annotation on the first leaf node."""
-
-  def FindFirstLeaf(node):
-    if isinstance(node, pytree.Leaf):
-      return node
-    return FindFirstLeaf(node.children[0])
-
   pytree_utils.SetNodeAnnotation(
-      FindFirstLeaf(node), pytree_utils.Annotation.MUST_SPLIT, True)
+      pytree_utils.FirstLeafNode(node), pytree_utils.Annotation.MUST_SPLIT,
+      True)
