@@ -38,7 +38,7 @@ from yapf.yapflib import py3compat
 from yapf.yapflib import style
 from yapf.yapflib import yapf_api
 
-__version__ = '0.21.0'
+__version__ = '0.24.0'
 
 
 def main(argv):
@@ -49,7 +49,8 @@ def main(argv):
       in argv[0]).
 
   Returns:
-    0 if there were no changes, non-zero otherwise.
+    Zero on successful program termination, non-zero otherwise.
+    With --diff: zero if there were no changes, non-zero otherwise.
 
   Raises:
     YapfError: if none of the supplied files were Python files.
@@ -126,7 +127,8 @@ def main(argv):
       action='store_true',
       help='Print out file names while processing')
 
-  parser.add_argument('files', nargs='*')
+  parser.add_argument(
+      'files', nargs='*', help='Reads from stdin when no files are specified.')
   args = parser.parse_args(argv[1:])
 
   if args.version:
@@ -143,7 +145,10 @@ def main(argv):
     for option, docstring in sorted(style.Help().items()):
       for line in docstring.splitlines():
         print('#', line and ' ' or '', line, sep='')
-      print(option.lower(), '=', style.Get(option), sep='')
+      option_value = style.Get(option)
+      if isinstance(option_value, set) or isinstance(option_value, list):
+        option_value = ', '.join(option_value)
+      print(option.lower(), '=', option_value, sep='')
       print()
     return 0
 

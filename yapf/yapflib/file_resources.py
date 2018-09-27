@@ -148,7 +148,10 @@ def _FindPythonFiles(filenames, recursive, exclude):
 
 def IsIgnored(path, exclude):
   """Return True if filename matches any patterns in exclude."""
-  return any(fnmatch.fnmatch(path.lstrip('./'), e.rstrip('/')) for e in exclude)
+  path = path.lstrip('/')
+  while path.startswith('./'):
+    path = path[2:]
+  return any(fnmatch.fnmatch(path, e.rstrip('/')) for e in exclude)
 
 
 def IsPythonFile(filename):
@@ -175,8 +178,8 @@ def IsPythonFile(filename):
   try:
     with py3compat.open_with_encoding(
         filename, mode='r', encoding=encoding) as fd:
-      first_line = fd.readlines()[0]
-  except (IOError, IndexError):
+      first_line = fd.readline(256)
+  except IOError:
     return False
 
   return re.match(r'^#!.*\bpython[23]?\b', first_line)

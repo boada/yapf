@@ -16,6 +16,7 @@
 import textwrap
 import unittest
 
+from yapf.yapflib import py3compat
 from yapf.yapflib import reformatter
 from yapf.yapflib import style
 
@@ -28,34 +29,52 @@ class BasicReformatterTest(yapf_test_helper.YAPFTest):
   def setUpClass(cls):
     style.SetGlobalStyle(style.CreateChromiumStyle())
 
-  def testSimple(self):
+  def testSplittingAllArgs(self):
+    style.SetGlobalStyle(
+        style.CreateStyleFromConfig(
+            '{split_all_comma_separated_values: true, column_limit: 40}'))
     unformatted_code = textwrap.dedent("""\
-        if a+b:
-            pass
-        """)
+          responseDict = {"timestamp": timestamp, "someValue":   value, "whatever": 120}
+          """)
     expected_formatted_code = textwrap.dedent("""\
-        if a + b:
-          pass
-        """)
+          responseDict = {
+              "timestamp": timestamp,
+              "someValue": value,
+              "whatever": 120
+          }
+          """)
+    unformatted_code = textwrap.dedent("""\
+          def foo(long_arg, really_long_arg, really_really_long_arg, cant_keep_all_these_args):
+                pass
+          """)
+    expected_formatted_code = textwrap.dedent("""\
+          def foo(long_arg,
+                  really_long_arg,
+                  really_really_long_arg,
+                  cant_keep_all_these_args):
+            pass
+          """)
     uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
     self.assertCodeEqual(expected_formatted_code, reformatter.Reformat(uwlines))
-
-  def testSimpleFunctions(self):
     unformatted_code = textwrap.dedent("""\
-        def g():
-          pass
-
-        def f():
-          pass
-        """)
+          foo_tuple = [long_arg, really_long_arg, really_really_long_arg, cant_keep_all_these_args]
+          """)
     expected_formatted_code = textwrap.dedent("""\
-        def g():
-          pass
-
-
-        def f():
-          pass
-        """)
+          foo_tuple = [
+              long_arg,
+              really_long_arg,
+              really_really_long_arg,
+              cant_keep_all_these_args
+          ]
+          """)
+    uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
+    self.assertCodeEqual(expected_formatted_code, reformatter.Reformat(uwlines))
+    unformatted_code = textwrap.dedent("""\
+          foo_tuple = [short, arg]
+          """)
+    expected_formatted_code = textwrap.dedent("""\
+          foo_tuple = [short, arg]
+          """)
     uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
     self.assertCodeEqual(expected_formatted_code, reformatter.Reformat(uwlines))
 
@@ -112,6 +131,43 @@ class BasicReformatterTest(yapf_test_helper.YAPFTest):
     expected_formatted_code = textwrap.dedent("""\
         x = {'a': 37, 'b': 42, 'c': 927}
     """)
+    uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
+    self.assertCodeEqual(expected_formatted_code, reformatter.Reformat(uwlines))
+
+  def testIndentBlankLines(self):
+    try:
+      style.SetGlobalStyle(
+          style.CreateStyleFromConfig(
+              '{based_on_style: chromium, indent_blank_lines: true}'))
+      unformatted_code = textwrap.dedent("""\
+          class foo(object):
+
+            def foobar(self):
+
+              pass
+
+            def barfoo(self, x, y):  # bar
+
+              if x:
+
+                return y
+
+
+          def bar():
+
+            return 0
+          """)
+      expected_formatted_code = """\
+class foo(object):\n  \n  def foobar(self):\n    \n    pass\n  \n  def barfoo(self, x, y):  # bar\n    \n    if x:\n      \n      return y\n\n\ndef bar():\n  \n  return 0
+"""
+      uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
+      self.assertCodeEqual(expected_formatted_code,
+                           reformatter.Reformat(uwlines))
+    finally:
+      style.SetGlobalStyle(style.CreateChromiumStyle())
+
+    unformatted_code, expected_formatted_code = (expected_formatted_code,
+                                                 unformatted_code)
     uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
     self.assertCodeEqual(expected_formatted_code, reformatter.Reformat(uwlines))
 
@@ -1321,18 +1377,18 @@ s = 'foo \\
     self.assertCodeEqual(code, reformatter.Reformat(uwlines))
 
   def testRelaxArraySubscriptAffinity(self):
-    code = textwrap.dedent("""\
-        class A(object):
+    code = """\
+class A(object):
 
-          def f(self, aaaaaaaaa, bbbbbbbbbbbbb, row):
-            if True:
-              if True:
-                if True:
-                  if True:
-                    if row[4] is None or row[5] is None:
-                      bbbbbbbbbbbbb['..............'] = row[
-                          5] if row[5] is not None else 5
-        """)
+  def f(self, aaaaaaaaa, bbbbbbbbbbbbb, row):
+    if True:
+      if True:
+        if True:
+          if True:
+            if row[4] is None or row[5] is None:
+              bbbbbbbbbbbbb[
+                  '..............'] = row[5] if row[5] is not None else 5
+"""
     uwlines = yapf_test_helper.ParseAndUnwrap(code)
     self.assertCodeEqual(code, reformatter.Reformat(uwlines))
 
@@ -2332,6 +2388,24 @@ s = 'foo \\
     uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
     self.assertEqual(expected_code, reformatter.Reformat(uwlines))
 
+  def testPseudoParens(self):
+    unformatted_code = """\
+my_dict = {
+    'key':  # Some comment about the key
+        {'nested_key': 1, },
+}
+"""
+    expected_code = """\
+my_dict = {
+    'key':  # Some comment about the key
+        {
+            'nested_key': 1,
+        },
+}
+"""
+    uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
+    self.assertEqual(expected_code, reformatter.Reformat(uwlines))
+
   def testSplittingBeforeFirstArgumentOnFunctionCall(self):
     """Tests split_before_first_argument on a function call."""
     try:
@@ -2451,6 +2525,7 @@ s = 'foo \\
     finally:
       style.SetGlobalStyle(style.CreateChromiumStyle())
 
+  @unittest.skipUnless(not py3compat.PY3, 'Requires Python 2.7')
   def testAsyncAsNonKeyword(self):
     try:
       style.SetGlobalStyle(style.CreatePEP8Style())
@@ -2469,6 +2544,51 @@ s = 'foo \\
           """)
       uwlines = yapf_test_helper.ParseAndUnwrap(code)
       self.assertCodeEqual(code, reformatter.Reformat(uwlines, verify=False))
+    finally:
+      style.SetGlobalStyle(style.CreateChromiumStyle())
+
+  def testDisableEndingCommaHeuristic(self):
+    try:
+      style.SetGlobalStyle(
+          style.CreateStyleFromConfig('{based_on_style: chromium,'
+                                      ' disable_ending_comma_heuristic: True}'))
+
+      code = """\
+x = [1, 2, 3, 4, 5, 6, 7,]
+"""
+      uwlines = yapf_test_helper.ParseAndUnwrap(code)
+      self.assertCodeEqual(code, reformatter.Reformat(uwlines))
+    finally:
+      style.SetGlobalStyle(style.CreateChromiumStyle())
+
+  def testDedentClosingBracketsWithTypeAnnotationExceedingLineLength(self):
+    try:
+      style.SetGlobalStyle(
+          style.CreateStyleFromConfig('{based_on_style: chromium,'
+                                      ' dedent_closing_brackets: True}'))
+      unformatted_code = textwrap.dedent("""\
+                def function(first_argument_xxxxxxxxxxxxxxxx=(0,), second_argument=None) -> None:
+                  pass
+
+
+                def function(first_argument_xxxxxxxxxxxxxxxxxxxxxxx=(0,), second_argument=None) -> None:
+                  pass
+                """)
+      expected_formatted_code = textwrap.dedent("""\
+                def function(
+                    first_argument_xxxxxxxxxxxxxxxx=(0,), second_argument=None
+                ) -> None:
+                  pass
+
+
+                def function(
+                    first_argument_xxxxxxxxxxxxxxxxxxxxxxx=(0,), second_argument=None
+                ) -> None:
+                  pass
+                """)
+      uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
+      self.assertCodeEqual(expected_formatted_code,
+                           reformatter.Reformat(uwlines))
     finally:
       style.SetGlobalStyle(style.CreateChromiumStyle())
 

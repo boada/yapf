@@ -2,10 +2,60 @@
 # All notable changes to this project will be documented in this file.
 # This project adheres to [Semantic Versioning](http://semver.org/).
 
-## Unreleased
+## [0.25.0] UNRELEASED
+### Added
+- Added `INDENT_BLANK_LINES` knob to select whether the blank lines are empty
+  or indented consistently with the current block.
+### Fixed
+- Correctly determine if a scope is the last in line. It avoids a wrong
+  computation of the line end when determining if it must split after the
+  opening bracket with `DEDENT_CLOSING_BRACKETS` enabled.
+
+## [0.24.0] 2018-09-07
+### Added
+- Added 'SPLIT_BEFORE_DOT' knob to support "builder style" calls. The "builder
+  style" option didn't work as advertised. Lines would split after the dots,
+  not before them regardless of the penalties.
+### Changed
+- Support Python 3.7 in the tests. The old "comp_for" and "comp_if" nodes are
+  now "old_comp_for" and "old_comp_if" in lib2to3.
+### Fixed
+- Don't count inner function calls when marking arguments as named assignments.
+- Make sure that tuples and the like are formatted nicely if they all can't fit
+  on a single line. This is similar to how we format function calls within an
+  argument list.
+- Allow splitting in a subscript if it goes over the line limit.
+- Increase the split penalty for an if-expression.
+- Increase penalty for splitting in a subscript so that it's more likely to
+  split in a function call or other data literal.
+- Cloning a pytree node doesn't transfer its a annotations. Make sure we do
+  that so that we don't lose information.
+- Revert change that broke the "no_spaces_around_binary_operators" option.
+- The "--style-help" option would output string lists and sets in Python types.
+  If the output was used as a style, then it wouldn't parse those values
+  correctly.
+
+## [0.23.0] 2018-08-27
+### Added
+- `DISABLE_ENDING_COMMA_HEURISTIC` is a new knob to disable the heuristic which
+  splits a list onto separate lines if the list is comma-terminated.
+### Fixed
+- There's no need to increase N_TOKENS. In fact, it causes other things which
+  use lib2to3 to fail if called from YAPF.
+- Change the exception message instead of creating a new one that's just a
+  clone.
+- Make sure not to reformat when a line is disabled even if the --lines option
+  is specified.
+- The "no spaces around operators" flag wasn't correctly converting strings to
+  sets. Changed the regexp to handle it better.
+
+## [0.22.0] 2018-05-15
 ### Added
 - The `BLANK_LINE_BEFORE_MODULE_DOCSTRING` knob adds a blank line before a
   module's docstring.
+- The `SPLIT_ALL_COMMA_SEPARATED_VALUES` knob causes all lists, tuples, dicts
+  function defs, etc... to split on all values, instead of maximizing the
+  number of elements on each line, when not able to fit on a single line.
 ### Changed
 - Improve the heuristic we use to determine when to split at the start of a
   function call. First check whether or not all elements can fit in the space

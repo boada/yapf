@@ -26,7 +26,6 @@ from yapf.yapflib import pytree_utils
 from yapf.yapflib import style
 
 CONTINUATION = token.N_TOKENS
-token.N_TOKENS += 1
 
 
 class Subtype(object):
@@ -140,6 +139,15 @@ class FormatToken(object):
     else:
       self.value = self.node.value
 
+  @property
+  def formatted_whitespace_prefix(self):
+    if style.Get('INDENT_BLANK_LINES'):
+      without_newlines = self.whitespace_prefix.lstrip('\n')
+      height = len(self.whitespace_prefix) - len(without_newlines)
+      if height:
+        return ('\n' + without_newlines) * height
+    return self.whitespace_prefix
+
   def AddWhitespacePrefix(self, newlines_before, spaces=0, indent_level=0):
     """Register a token's whitespace prefix.
 
@@ -224,7 +232,8 @@ class FormatToken(object):
     return self.value in pytree_utils.CLOSING_BRACKETS
 
   def __repr__(self):
-    msg = 'FormatToken(name={0}, value={1}'.format(self.name, self.value)
+    msg = 'FormatToken(name={0}, value={1}, lineno={2}'.format(
+        self.name, self.value, self.lineno)
     msg += ', pseudo)' if self.is_pseudo_paren else ')'
     return msg
 
@@ -332,4 +341,9 @@ class FormatToken(object):
   @property
   def is_pylint_comment(self):
     return self.is_comment and re.match(r'#.*\bpylint:\s*(disable|enable)=',
+                                        self.value)
+
+  @property
+  def is_pytype_comment(self):
+    return self.is_comment and re.match(r'#.*\bpytype:\s*(disable|enable)=',
                                         self.value)

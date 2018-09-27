@@ -51,13 +51,13 @@ Installation
 
 To install YAPF from PyPI:
 
-.. code-block::
+.. code-block:: shell
 
     $ pip install yapf
 
 (optional) If you are using Python 2.7 and want to enable multiprocessing:
 
-.. code-block::
+.. code-block:: shell
 
     $ pip install futures
 
@@ -70,7 +70,7 @@ library, installation is not necessary. YAPF supports being run as a directory
 by the Python interpreter. If you cloned/unzipped YAPF into ``DIR``, it's
 possible to run:
 
-.. code-block::
+.. code-block:: shell
 
     $ PYTHONPATH=DIR python DIR/yapf [options] ...
 
@@ -126,6 +126,17 @@ Options::
       -vv, --verbose        Print out file names while processing
 
 
+------------
+Return Codes
+------------
+
+Normally YAPF returns zero on successful program termination and non-zero otherwise.
+
+If ``--diff`` is supplied, YAPF returns zero when no changes were necessary, non-zero
+otherwise (including program error). You can use this in a CI workflow to test that code
+has been YAPF-formatted.
+
+
 Formatting style
 ================
 
@@ -138,11 +149,11 @@ the predefined styles (e.g., ``pep8`` or ``google``), a path to a configuration
 file that specifies the desired style, or a dictionary of key/value pairs.
 
 The config file is a simple listing of (case-insensitive) ``key = value`` pairs
-with a ``[style]`` heading. For example:
+with a ``[yapf]`` heading. For example:
 
-.. code-block::
+.. code-block:: ini
 
-    [style]
+    [yapf]
     based_on_style = pep8
     spaces_before_comment = 4
     split_before_logical_operator = true
@@ -153,7 +164,7 @@ custom style is based on (think of it like subclassing).
 It's also possible to do the same on the command line with a dictionary. For
 example:
 
-.. code-block::
+.. code-block:: shell
 
     --style='{based_on_style: chromium, indent_width: 4}'
 
@@ -404,6 +415,10 @@ Knobs
             end_ts=now(),
         )  # <--- this bracket is dedented and on a separate line
 
+``DISABLE_ENDING_COMMA_HEURISTIC``
+    Disable the heuristic which places each list element on a separate line if
+    the list is comma-terminated.
+
 ``EACH_DICT_ENTRY_ON_SEPARATE_LINE``
     Place each dictionary entry onto its own line.
 
@@ -433,11 +448,11 @@ Knobs
 ``INDENT_WIDTH``
     The number of columns to use for indentation.
 
+``INDENT_BLANK_LINES``
+    Set to ``True`` to prefer indented blank lines rather than empty
+
 ``JOIN_MULTIPLE_LINES``
     Join short lines into one line. E.g., single line ``if`` statements.
-
-``SPACES_AROUND_POWER_OPERATOR``
-    Set to ``True`` to prefer using spaces around ``**``.
 
 ``NO_SPACES_AROUND_SELECTED_BINARY_OPERATORS``
     Do not include spaces around selected binary operators. For example:
@@ -446,11 +461,14 @@ Knobs
 
         1 + 2 * 3 - 4 / 5
 
-    will be formatted as follows when configured with a value ``"*,/"``:
+    will be formatted as follows when configured with ``*,/``:
 
     .. code-block:: python
 
         1 + 2*3 - 4/5
+
+``SPACES_AROUND_POWER_OPERATOR``
+    Set to ``True`` to prefer using spaces around ``**``.
 
 ``SPACES_AROUND_DEFAULT_OR_NAMED_ASSIGN``
     Set to ``True`` to prefer spaces around the assignment operator for default
@@ -464,6 +482,10 @@ Knobs
 
 ``SPLIT_ARGUMENTS_WHEN_COMMA_TERMINATED``
     Split before arguments if the argument list is terminated by a comma.
+
+``SPLIT_ALL_COMMA_SEPARATED_VALUES``
+    If a comma separated list (dict, list, tuple, or function def) is on a
+    line that is too long, split such that all elements are on a single line.
 
 ``SPLIT_BEFORE_BITWISE_OPERATOR``
     Set to ``True`` to prefer splitting before ``&``, ``|`` or ``^`` rather
@@ -483,6 +505,20 @@ Knobs
             variable: 'Hello world, have a nice day!'
             for variable in bar if variable != 42
         }
+
+``SPLIT_BEFORE_DOT``
+    Split before the '.' if we need to split a longer expression:
+
+    .. code-block:: python
+
+      foo = ('This is a really long string: {}, {}, {}, {}'.format(a, b, c, d))
+
+    would reformat to something like:
+
+    .. code-block:: python
+
+      foo = ('This is a really long string: {}, {}, {}, {}'
+             .format(a, b, c, d))
 
 ``SPLIT_BEFORE_EXPRESSION_AFTER_OPENING_PAREN``
     Split after the opening paren which surrounds an expression if it doesn't
@@ -568,6 +604,7 @@ Knobs
 (Potentially) Frequently Asked Questions
 ========================================
 
+--------------------------------------------
 Why does YAPF destroy my awesome formatting?
 --------------------------------------------
 
@@ -609,6 +646,7 @@ To preserve the nice dedented closing brackets, use the
 brackets, including function definitions and calls, are going to use
 that style.  This provides consistency across the formatted codebase.
 
+-------------------------------
 Why Not Improve Existing Tools?
 -------------------------------
 
@@ -617,6 +655,7 @@ designed to come up with the best formatting possible. Existing tools were
 created with different goals in mind, and would require extensive modifications
 to convert to using clang-format's algorithm.
 
+-----------------------------
 Can I Use YAPF In My Program?
 -----------------------------
 
@@ -627,6 +666,7 @@ tool. This means that a tool or IDE plugin is free to use YAPF.
 Gory Details
 ============
 
+----------------
 Algorithm Design
 ----------------
 
