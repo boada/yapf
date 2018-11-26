@@ -36,6 +36,30 @@ def _restore_working_dir():
     os.chdir(curdir)
 
 
+class GetExcludePatternsForDir(unittest.TestCase):
+
+  def setUp(self):
+    self.test_tmpdir = tempfile.mkdtemp()
+
+  def tearDown(self):
+    shutil.rmtree(self.test_tmpdir)
+
+  def _make_test_dir(self, name):
+    fullpath = os.path.normpath(os.path.join(self.test_tmpdir, name))
+    os.makedirs(fullpath)
+    return fullpath
+
+  def test_get_exclude_file_patterns(self):
+    local_ignore_file = os.path.join(self.test_tmpdir, '.yapfignore')
+    ignore_patterns = ['temp/**/*.py', 'temp2/*.py']
+    with open(local_ignore_file, 'w') as f:
+      f.writelines('\n'.join(ignore_patterns))
+
+    self.assertEqual(
+        sorted(file_resources.GetExcludePatternsForDir(self.test_tmpdir)),
+        sorted(ignore_patterns))
+
+
 class GetDefaultStyleForDirTest(unittest.TestCase):
 
   def setUp(self):
@@ -48,6 +72,12 @@ class GetDefaultStyleForDirTest(unittest.TestCase):
     test_file = os.path.join(self.test_tmpdir, 'file.py')
     style_name = file_resources.GetDefaultStyleForDir(test_file)
     self.assertEqual(style_name, 'pep8')
+
+  def test_no_local_style_custom_default(self):
+    test_file = os.path.join(self.test_tmpdir, 'file.py')
+    style_name = file_resources.GetDefaultStyleForDir(
+        test_file, default_style='custom-default')
+    self.assertEqual(style_name, 'custom-default')
 
   def test_with_local_style(self):
     # Create an empty .style.yapf file in test_tmpdir

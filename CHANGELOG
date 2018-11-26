@@ -6,6 +6,7 @@
 ### Added
 - Added `INDENT_BLANK_LINES` knob to select whether the blank lines are empty
   or indented consistently with the current block.
+- Support additional file exclude patterns in .yapfignore file.
 ### Fixed
 - Correctly determine if a scope is the last in line. It avoids a wrong
   computation of the line end when determining if it must split after the

@@ -32,16 +32,48 @@ LF = '\n'
 CRLF = '\r\n'
 
 
-def GetDefaultStyleForDir(dirname):
+def _GetExcludePatternsFromFile(filename):
+  ignore_patterns = []
+  # See if we have a .yapfignore file.
+  if os.path.isfile(filename) and os.access(filename, os.R_OK):
+    for line in open(filename, 'r').readlines():
+      if line.strip() and not line.startswith('#'):
+        ignore_patterns.append(line.strip())
+
+    if any(e.startswith('./') for e in ignore_patterns):
+      raise errors.YapfError('path in .yapfignore should not start with ./')
+
+  return ignore_patterns
+
+
+def GetExcludePatternsForDir(dirname):
+  """Return patterns of files to exclude from ignorefile in a given directory.
+
+   Looks for .yapfignore in the directory dirname.
+
+   Arguments:
+     dirname: (unicode) The name of the directory.
+
+   Returns:
+     A List of file patterns to exclude if ignore file is found
+     , otherwhise empty List.
+   """
+  ignore_file = os.path.join(dirname, '.yapfignore')
+  return _GetExcludePatternsFromFile(ignore_file)
+
+
+def GetDefaultStyleForDir(dirname, default_style=style.DEFAULT_STYLE):
   """Return default style name for a given directory.
 
   Looks for .style.yapf or setup.cfg in the parent directories.
 
   Arguments:
     dirname: (unicode) The name of the directory.
+    default_style: The style to return if nothing is found. Defaults to the
+                   global default style ('pep8') unless otherwise specified.
 
   Returns:
-    The filename if found, otherwise return the global default (pep8).
+    The filename if found, otherwise return the default style.
   """
   dirname = os.path.abspath(dirname)
   while True:
@@ -68,7 +100,7 @@ def GetDefaultStyleForDir(dirname):
   if os.path.exists(global_file):
     return global_file
 
-  return style.DEFAULT_STYLE
+  return default_style
 
 
 def GetCommandLineFiles(command_line_file_list, recursive, exclude):
