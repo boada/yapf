@@ -59,8 +59,31 @@ _STYLE_HELP = dict(
              'this is the second element of a tuple'):
                  value,
         }"""),
+    ALLOW_SPLIT_BEFORE_DEFAULT_OR_NAMED_ASSIGNS=textwrap.dedent("""\
+      Allow splitting before a default / named assignment in an argument list.
+      """),
     ALLOW_SPLIT_BEFORE_DICT_VALUE=textwrap.dedent("""\
       Allow splits before the dictionary value."""),
+    ARITHMETIC_PRECEDENCE_INDICATION=textwrap.dedent("""\
+      Let spacing indicate operator precedence. For example:
+
+        a = 1 * 2 + 3 / 4
+        b = 1 / 2 - 3 * 4
+        c = (1 + 2) * (3 - 4)
+        d = (1 - 2) / (3 + 4)
+        e = 1 * 2 - 3
+        f = 1 + 2 + 3 + 4
+
+    will be formatted as follows to indicate precedence:
+
+        a = 1*2 + 3/4
+        b = 1/2 - 3*4
+        c = (1+2) * (3-4)
+        d = (1-2) / (3+4)
+        e = 1*2 - 3
+        f = 1 + 2 + 3 + 4
+
+      """),
     BLANK_LINE_BEFORE_NESTED_CLASS_OR_DEF=textwrap.dedent("""\
       Insert a blank line before a 'def' or 'class' immediately nested
       within another 'def' or 'class'. For example:
@@ -102,8 +125,6 @@ _STYLE_HELP = dict(
       - FIXED: Use fixed number (CONTINUATION_INDENT_WIDTH) of columns
         (ie: CONTINUATION_INDENT_WIDTH/INDENT_WIDTH tabs) for continuation
         alignment.
-      - LESS: Slightly left if cannot vertically align continuation lines with
-        indent characters.
       - VALIGN-RIGHT: Vertically align continuation lines with indent
         characters. Slightly right (one more indent character) if cannot
         vertically align continuation lines with indent characters.
@@ -166,7 +187,6 @@ _STYLE_HELP = dict(
       will be formatted as follows when configured with "*,/":
 
         1 + 2*3 - 4/5
-
       """),
     SPACE_BETWEEN_ENDING_COMMA_AND_CLOSING_BRACKET=textwrap.dedent("""\
       Insert a space between the ending comma and closing bracket of a list,
@@ -176,12 +196,52 @@ _STYLE_HELP = dict(
     SPACES_AROUND_DEFAULT_OR_NAMED_ASSIGN=textwrap.dedent("""\
       Use spaces around default or named assigns."""),
     SPACES_BEFORE_COMMENT=textwrap.dedent("""\
-      The number of spaces required before a trailing comment."""),
+      The number of spaces required before a trailing comment.
+      This can be a single value (representing the number of spaces
+      before each trailing comment) or list of values (representing
+      alignment column values; trailing comments within a block will
+      be aligned to the first column value that is greater than the maximum
+      line length within the block). For example:
+
+      With spaces_before_comment=5:
+
+        1 + 1 # Adding values
+
+      will be formatted as:
+
+        1 + 1     # Adding values <-- 5 spaces between the end of the statement and comment
+
+      With spaces_before_comment=15, 20:
+
+        1 + 1 # Adding values
+        two + two # More adding
+
+        longer_statement # This is a longer statement
+        short # This is a shorter statement
+
+        a_very_long_statement_that_extends_beyond_the_final_column # Comment
+        short # This is a shorter statement
+
+      will be formatted as:
+
+        1 + 1          # Adding values <-- end of line comments in block aligned to col 15
+        two + two      # More adding
+
+        longer_statement    # This is a longer statement <-- end of line comments in block aligned to col 20
+        short               # This is a shorter statement
+
+        a_very_long_statement_that_extends_beyond_the_final_column  # Comment <-- the end of line comments are aligned based on the line length
+        short                                                       # This is a shorter statement
+
+      """),
     SPLIT_ARGUMENTS_WHEN_COMMA_TERMINATED=textwrap.dedent("""\
       Split before arguments if the argument list is terminated by a
       comma."""),
     SPLIT_ALL_COMMA_SEPARATED_VALUES=textwrap.dedent("""\
       Split before arguments"""),
+    SPLIT_BEFORE_ARITHMETIC_OPERATOR=textwrap.dedent("""\
+      Set to True to prefer splitting before '+', '-', '*', '/', '//', or '@'
+      rather than after."""),
     SPLIT_BEFORE_BITWISE_OPERATOR=textwrap.dedent("""\
       Set to True to prefer splitting before '&', '|' or '^' rather than
       after."""),
@@ -238,6 +298,9 @@ _STYLE_HELP = dict(
       The penalty for splitting right after the opening bracket."""),
     SPLIT_PENALTY_AFTER_UNARY_OPERATOR=textwrap.dedent("""\
       The penalty for splitting the line after a unary operator."""),
+    SPLIT_PENALTY_ARITHMETIC_OPERATOR=textwrap.dedent("""\
+      The penalty of splitting the line around the '+', '-', '*', '/', '//',
+      ``%``, and '@' operators."""),
     SPLIT_PENALTY_BEFORE_IF_EXPR=textwrap.dedent("""\
       The penalty for splitting right before an if expression."""),
     SPLIT_PENALTY_BITWISE_OPERATOR=textwrap.dedent("""\
@@ -277,7 +340,9 @@ def CreatePEP8Style():
       ALIGN_CLOSING_BRACKET_WITH_VISUAL_INDENT=True,
       ALLOW_MULTILINE_LAMBDAS=False,
       ALLOW_MULTILINE_DICTIONARY_KEYS=False,
+      ALLOW_SPLIT_BEFORE_DEFAULT_OR_NAMED_ASSIGNS=True,
       ALLOW_SPLIT_BEFORE_DICT_VALUE=True,
+      ARITHMETIC_PRECEDENCE_INDICATION=False,
       BLANK_LINE_BEFORE_NESTED_CLASS_OR_DEF=False,
       BLANK_LINE_BEFORE_CLASS_DOCSTRING=False,
       BLANK_LINE_BEFORE_MODULE_DOCSTRING=False,
@@ -302,6 +367,7 @@ def CreatePEP8Style():
       SPACES_BEFORE_COMMENT=2,
       SPLIT_ARGUMENTS_WHEN_COMMA_TERMINATED=False,
       SPLIT_ALL_COMMA_SEPARATED_VALUES=False,
+      SPLIT_BEFORE_ARITHMETIC_OPERATOR=False,
       SPLIT_BEFORE_BITWISE_OPERATOR=True,
       SPLIT_BEFORE_CLOSING_BRACKET=True,
       SPLIT_BEFORE_DICT_SET_GENERATOR=True,
@@ -311,8 +377,9 @@ def CreatePEP8Style():
       SPLIT_BEFORE_LOGICAL_OPERATOR=True,
       SPLIT_BEFORE_NAMED_ASSIGNS=True,
       SPLIT_COMPLEX_COMPREHENSION=False,
-      SPLIT_PENALTY_AFTER_OPENING_BRACKET=30,
+      SPLIT_PENALTY_AFTER_OPENING_BRACKET=300,
       SPLIT_PENALTY_AFTER_UNARY_OPERATOR=10000,
+      SPLIT_PENALTY_ARITHMETIC_OPERATOR=300,
       SPLIT_PENALTY_BEFORE_IF_EXPR=0,
       SPLIT_PENALTY_BITWISE_OPERATOR=300,
       SPLIT_PENALTY_COMPREHENSION=80,
@@ -344,6 +411,7 @@ def CreateGoogleStyle():
 def CreateChromiumStyle():
   style = CreateGoogleStyle()
   style['ALLOW_MULTILINE_DICTIONARY_KEYS'] = True
+  style['ALLOW_SPLIT_BEFORE_DEFAULT_OR_NAMED_ASSIGNS'] = False
   style['INDENT_DICTIONARY_VALUE'] = True
   style['INDENT_WIDTH'] = 2
   style['JOIN_MULTIPLE_LINES'] = False
@@ -395,7 +463,7 @@ def _ContinuationAlignStyleStringConverter(s):
   """Option value converter for a continuation align style string."""
   accepted_styles = ('SPACE', 'FIXED', 'VALIGN-RIGHT')
   if s:
-    r = s.upper()
+    r = s.strip('"\'').replace('_', '-').upper()
     if r not in accepted_styles:
       raise ValueError('unknown continuation align style: %r' % (s,))
   else:
@@ -420,6 +488,22 @@ def _BoolConverter(s):
   return py3compat.CONFIGPARSER_BOOLEAN_STATES[s.lower()]
 
 
+def _IntListConverter(s):
+  """Option value converter for a comma-separated list of integers."""
+  s = s.strip()
+  if s.startswith('[') and s.endswith(']'):
+    s = s[1:-1]
+
+  return [int(part.strip()) for part in s.split(',') if part.strip()]
+
+
+def _IntOrIntListConverter(s):
+  """Option value converter for an integer or list of integers."""
+  if len(s) > 2 and s[0] in '"\'':
+    s = s[1:-1]
+  return _IntListConverter(s) if ',' in s else int(s)
+
+
 # Different style options need to have their values interpreted differently when
 # read from the config file. This dict maps an option name to a "converter"
 # function that accepts the string read for the option's value from the file and
@@ -431,7 +515,9 @@ _STYLE_OPTION_VALUE_CONVERTER = dict(
     ALIGN_CLOSING_BRACKET_WITH_VISUAL_INDENT=_BoolConverter,
     ALLOW_MULTILINE_LAMBDAS=_BoolConverter,
     ALLOW_MULTILINE_DICTIONARY_KEYS=_BoolConverter,
+    ALLOW_SPLIT_BEFORE_DEFAULT_OR_NAMED_ASSIGNS=_BoolConverter,
     ALLOW_SPLIT_BEFORE_DICT_VALUE=_BoolConverter,
+    ARITHMETIC_PRECEDENCE_INDICATION=_BoolConverter,
     BLANK_LINE_BEFORE_NESTED_CLASS_OR_DEF=_BoolConverter,
     BLANK_LINE_BEFORE_CLASS_DOCSTRING=_BoolConverter,
     BLANK_LINE_BEFORE_MODULE_DOCSTRING=_BoolConverter,
@@ -453,9 +539,10 @@ _STYLE_OPTION_VALUE_CONVERTER = dict(
     SPACE_BETWEEN_ENDING_COMMA_AND_CLOSING_BRACKET=_BoolConverter,
     SPACES_AROUND_POWER_OPERATOR=_BoolConverter,
     SPACES_AROUND_DEFAULT_OR_NAMED_ASSIGN=_BoolConverter,
-    SPACES_BEFORE_COMMENT=int,
+    SPACES_BEFORE_COMMENT=_IntOrIntListConverter,
     SPLIT_ARGUMENTS_WHEN_COMMA_TERMINATED=_BoolConverter,
     SPLIT_ALL_COMMA_SEPARATED_VALUES=_BoolConverter,
+    SPLIT_BEFORE_ARITHMETIC_OPERATOR=_BoolConverter,
     SPLIT_BEFORE_BITWISE_OPERATOR=_BoolConverter,
     SPLIT_BEFORE_CLOSING_BRACKET=_BoolConverter,
     SPLIT_BEFORE_DICT_SET_GENERATOR=_BoolConverter,
@@ -467,6 +554,7 @@ _STYLE_OPTION_VALUE_CONVERTER = dict(
     SPLIT_COMPLEX_COMPREHENSION=_BoolConverter,
     SPLIT_PENALTY_AFTER_OPENING_BRACKET=int,
     SPLIT_PENALTY_AFTER_UNARY_OPERATOR=int,
+    SPLIT_PENALTY_ARITHMETIC_OPERATOR=int,
     SPLIT_PENALTY_BEFORE_IF_EXPR=int,
     SPLIT_PENALTY_BITWISE_OPERATOR=int,
     SPLIT_PENALTY_COMPREHENSION=int,

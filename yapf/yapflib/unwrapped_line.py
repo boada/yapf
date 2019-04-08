@@ -73,7 +73,20 @@ class UnwrappedLine(object):
         token.spaces_required_before = 1
 
       tok_len = len(token.value) if not token.is_pseudo_paren else 0
-      token.total_length = prev_length + tok_len + token.spaces_required_before
+
+      spaces_required_before = token.spaces_required_before
+      if isinstance(spaces_required_before, list):
+        assert token.is_comment, token
+
+        # If here, we are looking at a comment token that appears on a line
+        # with other tokens (but because it is a comment, it is always the last
+        # token).  Rather than specifying the actual number of spaces here,
+        # hard code a value of 0 and then set it later. This logic only works
+        # because this comment token is guaranteed to be the last token in the
+        # list.
+        spaces_required_before = 0
+
+      token.total_length = prev_length + tok_len + spaces_required_before
 
       # The split penalty has to be computed before {must|can}_break_before,
       # because these may use it for their decision.
@@ -214,6 +227,40 @@ def _IsUnaryOperator(tok):
   return format_token.Subtype.UNARY_OPERATOR in tok.subtypes
 
 
+def _HasPrecedence(tok):
+  """Whether a binary operation has precedence within its context."""
+  node = tok.node
+
+  # We let ancestor be the statement surrounding the operation that tok is the
+  # operator in.
+  ancestor = node.parent.parent
+
+  while ancestor is not None:
+    # Search through the ancestor nodes in the parse tree for operators with
+    # lower precedence.
+    predecessor_type = pytree_utils.NodeName(ancestor)
+    if predecessor_type in ['arith_expr', 'term']:
+      # An ancestor "arith_expr" or "term" means we have found an operator
+      # with lower precedence than our tok.
+      return True
+    if predecessor_type != 'atom':
+      # We understand the context to look for precedence within as an
+      # arbitrary nesting of "arith_expr", "term", and "atom" nodes. If we
+      # leave this context we have not found a lower precedence operator.
+      return False
+    # Under normal usage we expect a complete parse tree to be available and
+    # we will return before we get an AttributeError from the root.
+    ancestor = ancestor.parent
+
+
+def _PriorityIndicatingNoSpace(tok):
+  """Whether to remove spaces around an operator due to precedence."""
+  if not tok.is_arithmetic_op or not tok.is_simple_expr:
+    # Limit space removal to highest priority arithmetic operators
+    return False
+  return _HasPrecedence(tok)
+
+
 def _SpaceRequiredBetween(left, right):
   """Return True if a space is required between the left and right token."""
   lval = left.value
@@ -278,9 +325,9 @@ def _SpaceRequiredBetween(left, right):
       # If there is a type hint, then we don't want to add a space between the
       # equal sign and the hint.
       return False
-    if rval not in '[)]}.':
+    if rval not in '[)]}.' and not right.is_binary_op:
       # A string followed by something other than a subscript, closing bracket,
-      # or dot should have a space after it.
+      # dot, or a binary op should have a space after it.
       return True
   if left.is_binary_op and lval != '**' and _IsUnaryOperator(right):
     # Space between the binary operator and the unary operator.
@@ -297,7 +344,15 @@ def _SpaceRequiredBetween(left, right):
       return style.Get('SPACES_AROUND_POWER_OPERATOR')
     # Enforce spaces around binary operators except the blacklisted ones.
     blacklist = style.Get('NO_SPACES_AROUND_SELECTED_BINARY_OPERATORS')
-    return lval not in blacklist and rval not in blacklist
+    if lval in blacklist or rval in blacklist:
+      return False
+    if style.Get('ARITHMETIC_PRECEDENCE_INDICATION'):
+      if _PriorityIndicatingNoSpace(left) or _PriorityIndicatingNoSpace(right):
+        return False
+      else:
+        return True
+    else:
+      return True
   if (_IsUnaryOperator(left) and lval != 'not' and
       (right.is_name or right.is_number or rval == '(')):
     # The previous token was a unary op. No space is desired between it and
@@ -424,6 +479,10 @@ def _CanBreakBefore(prev_token, cur_token):
   if format_token.Subtype.UNARY_OPERATOR in prev_token.subtypes:
     # Don't break after a unary token.
     return False
+  if not style.Get('ALLOW_SPLIT_BEFORE_DEFAULT_OR_NAMED_ASSIGNS'):
+    if (format_token.Subtype.DEFAULT_OR_NAMED_ASSIGN in cur_token.subtypes or
+        format_token.Subtype.DEFAULT_OR_NAMED_ASSIGN in prev_token.subtypes):
+      return False
   return True
 
 
@@ -460,7 +519,7 @@ def IsSurroundedByBrackets(tok):
 
 _LOGICAL_OPERATORS = frozenset({'and', 'or'})
 _BITWISE_OPERATORS = frozenset({'&', '|', '^'})
-_TERM_OPERATORS = frozenset({'*', '/', '%', '//', '@'})
+_ARITHMETIC_OPERATORS = frozenset({'+', '-', '*', '/', '%', '//', '@'})
 
 
 def _SplitPenalty(prev_token, cur_token):
@@ -509,9 +568,8 @@ def _SplitPenalty(prev_token, cur_token):
   if pval == ',':
     # Breaking after a comma is fine, if need be.
     return 0
-  if prev_token.is_binary_op:
-    # We would rather not split after an equality operator.
-    return 20
+  if pval == '**' or cval == '**':
+    return split_penalty.STRONGLY_CONNECTED
   if (format_token.Subtype.VARARGS_STAR in prev_token.subtypes or
       format_token.Subtype.KWARGS_STAR_STAR in prev_token.subtypes):
     # Don't split after a varargs * or kwargs **.
@@ -535,6 +593,4 @@ def _SplitPenalty(prev_token, cur_token):
   if cur_token.ClosesScope():
     # Give a slight penalty for splitting before the closing scope.
     return 100
-  if pval in _TERM_OPERATORS or cval in _TERM_OPERATORS:
-    return 50
   return 0

@@ -281,7 +281,8 @@ class FormatDecisionState(object):
             if not self._FitsOnLine(current, tok.matching_bracket):
               return True
 
-    if current.OpensScope() and previous.value == ',':
+    if (current.OpensScope() and previous.value == ',' and
+        format_token.Subtype.DICTIONARY_KEY not in current.next_token.subtypes):
       # If we have a list of tuples, then we can get a similar look as above. If
       # the full list cannot fit on the line, then we want a split.
       open_bracket = unwrapped_line.IsSurroundedByBrackets(current)
@@ -339,8 +340,8 @@ class FormatDecisionState(object):
     ###########################################################################
     # Argument List Splitting
     if (style.Get('SPLIT_BEFORE_NAMED_ASSIGNS') and not current.is_comment and
-        format_token.Subtype.DEFAULT_OR_NAMED_ASSIGN_ARG_LIST in current
-        .subtypes):
+        format_token.Subtype.DEFAULT_OR_NAMED_ASSIGN_ARG_LIST in
+        current.subtypes):
       if (previous.value not in {'=', ':', '*', '**'} and
           current.value not in ':=,)' and not _IsFunctionDefinition(previous)):
         # If we're going to split the lines because of named arguments, then we
@@ -357,6 +358,11 @@ class FormatDecisionState(object):
               unwrapped_line.IsSurroundedByBrackets(previous)):
             # An argument to a function is a function call with named
             # assigns.
+            return False
+
+          # Don't split if not required
+          if (not style.Get('SPLIT_BEFORE_EXPRESSION_AFTER_OPENING_PAREN') and
+              not style.Get('SPLIT_BEFORE_FIRST_ARGUMENT')):
             return False
 
           column = self.column - self.stack[-1].last_space
@@ -410,14 +416,34 @@ class FormatDecisionState(object):
             return True
 
     pprevious = previous.previous_token
+
+    # A function call with a dictionary as its first argument may result in
+    # unreadable formatting if the dictionary spans multiple lines. The
+    # dictionary itself is formatted just fine, but the remaning arguments are
+    # indented too far:
+    #
+    #     function_call({
+    #         KEY_1: 'value one',
+    #         KEY_2: 'value two',
+    #     },
+    #                   default=False)
+    if (current.value == '{' and previous.value == '(' and pprevious and
+        pprevious.is_name):
+      dict_end = current.matching_bracket
+      next_token = dict_end.next_token
+      if next_token.value == ',' and not self._FitsOnLine(current, dict_end):
+        return True
+
     if (current.is_name and pprevious and pprevious.is_name and
         previous.value == '('):
+
       if (not self._FitsOnLine(previous, previous.matching_bracket) and
           _IsFunctionCallWithArguments(current)):
         # There is a function call, with more than 1 argument, where the first
-        # argument is itself a function call with arguments.  In this specific
-        # case, if we split after the first argument's opening '(', then the
-        # formatting will look bad for the rest of the arguments. E.g.:
+        # argument is itself a function call with arguments that does not fit
+        # into the line.  In this specific case, if we split after the first
+        # argument's opening '(', then the formatting will look bad for the
+        # rest of the arguments. E.g.:
         #
         #     outer_function_call(inner_function_call(
         #         inner_arg1, inner_arg2),
@@ -425,7 +451,31 @@ class FormatDecisionState(object):
         #
         # Instead, enforce a split before that argument to keep things looking
         # good.
-        return True
+        if (style.Get('SPLIT_BEFORE_EXPRESSION_AFTER_OPENING_PAREN') or
+            style.Get('SPLIT_BEFORE_FIRST_ARGUMENT')):
+          return True
+
+        opening = _GetOpeningBracket(current)
+        if (opening and opening.value == '(' and opening.previous_token and
+            (opening.previous_token.is_name or
+             opening.previous_token.value in {'*', '**'})):
+          is_func_call = False
+          opening = current
+          while opening:
+            if opening.value == '(':
+              is_func_call = True
+              break
+            if (not (opening.is_name or opening.value in {'*', '**'}) and
+                opening.value != '.'):
+              break
+            opening = opening.next_token
+
+          if is_func_call:
+            if (not self._FitsOnLine(current, opening.matching_bracket) or
+                (opening.matching_bracket.next_token and
+                 opening.matching_bracket.next_token.value != ',' and
+                 not opening.matching_bracket.next_token.ClosesScope())):
+              return True
 
     if (previous.OpensScope() and not current.OpensScope() and
         not current.is_comment and
@@ -522,6 +572,11 @@ class FormatDecisionState(object):
     previous = current.previous_token
 
     spaces = current.spaces_required_before
+    if isinstance(spaces, list):
+      # Don't set the value here, as we need to look at the lines near
+      # this one to determine the actual horizontal alignment value.
+      spaces = 0
+
     if not dry_run:
       current.AddWhitespacePrefix(newlines_before=0, spaces=spaces)
 
@@ -742,7 +797,11 @@ class FormatDecisionState(object):
     previous = current.previous_token
     top_of_stack = self.stack[-1]
 
-    if current.spaces_required_before > 2 or self.line.disable:
+    if isinstance(current.spaces_required_before, list):
+      # Don't set the value here, as we need to look at the lines near
+      # this one to determine the actual horizontal alignment value.
+      return 0
+    elif current.spaces_required_before > 2 or self.line.disable:
       return current.spaces_required_before
 
     if current.OpensScope():
@@ -801,6 +860,21 @@ class FormatDecisionState(object):
         tok = tok.next_token
       return num_strings > 1
 
+    def DictValueIsContainer(opening, closing):
+      if not opening or not closing:
+        return False
+      colon = opening.previous_token
+      while colon:
+        if not colon.is_pseudo_paren:
+          break
+        colon = colon.previous_token
+      if not colon or colon.value != ':':
+        return False
+      key = colon.previous_token
+      if not key:
+        return False
+      return format_token.Subtype.DICTIONARY_KEY_PART in key.subtypes
+
     closing = opening.matching_bracket
     entry_start = opening.next_token
     current = opening.next_token.next_token
@@ -808,10 +882,13 @@ class FormatDecisionState(object):
     while current and current != closing:
       if format_token.Subtype.DICTIONARY_KEY in current.subtypes:
         prev = PreviousNonCommentToken(current)
-        length = prev.total_length - entry_start.total_length
-        length += len(entry_start.value)
-        if length + self.stack[-2].indent >= self.column_limit:
-          return False
+        if prev.value == ',':
+          prev = PreviousNonCommentToken(prev.previous_token)
+        if not DictValueIsContainer(prev.matching_bracket, prev):
+          length = prev.total_length - entry_start.total_length
+          length += len(entry_start.value)
+          if length + self.stack[-2].indent >= self.column_limit:
+            return False
         entry_start = current
       if current.OpensScope():
         if ((current.value == '{' or
@@ -837,8 +914,8 @@ class FormatDecisionState(object):
       else:
         current = current.next_token
 
-    # At this point, current is the closing bracket. Go back one to get the the
-    # end of the dictionary entry.
+    # At this point, current is the closing bracket. Go back one to get the end
+    # of the dictionary entry.
     current = PreviousNonCommentToken(current)
     length = current.total_length - entry_start.total_length
     length += len(entry_start.value)
@@ -905,7 +982,8 @@ def _GetLengthOfSubtype(token, subtype, exclude=None):
 def _GetOpeningBracket(current):
   """Get the opening bracket containing the current token."""
   if current.matching_bracket and not current.is_pseudo_paren:
-    return current.matching_bracket
+    return current if current.OpensScope() else current.matching_bracket
+
   while current:
     if current.ClosesScope():
       current = current.matching_bracket

@@ -32,13 +32,15 @@ import logging
 import os
 import sys
 
+from lib2to3.pgen2 import tokenize
+
 from yapf.yapflib import errors
 from yapf.yapflib import file_resources
 from yapf.yapflib import py3compat
 from yapf.yapflib import style
 from yapf.yapflib import yapf_api
 
-__version__ = '0.25.0'
+__version__ = '0.27.0'
 
 
 def main(argv):
@@ -182,12 +184,17 @@ def main(argv):
 
     source = [line.rstrip() for line in original_source]
     source[0] = py3compat.removeBOM(source[0])
-    reformatted_source, _ = yapf_api.FormatCode(
-        py3compat.unicode('\n'.join(source) + '\n'),
-        filename='<stdin>',
-        style_config=style_config,
-        lines=lines,
-        verify=args.verify)
+
+    try:
+      reformatted_source, _ = yapf_api.FormatCode(
+          py3compat.unicode('\n'.join(source) + '\n'),
+          filename='<stdin>',
+          style_config=style_config,
+          lines=lines,
+          verify=args.verify)
+    except tokenize.TokenError as e:
+      raise errors.YapfError('%s:%s' % (e.args[1][0], e.args[0]))
+
     file_resources.WriteReformattedCode('<stdout>', reformatted_source)
     return 0
 
@@ -195,9 +202,9 @@ def main(argv):
   exclude_patterns_from_ignore_file = file_resources.GetExcludePatternsForDir(
       os.getcwd())
 
-  files = file_resources.GetCommandLineFiles(
-      args.files, args.recursive,
-      (args.exclude or []) + exclude_patterns_from_ignore_file)
+  files = file_resources.GetCommandLineFiles(args.files, args.recursive,
+                                             (args.exclude or []) +
+                                             exclude_patterns_from_ignore_file)
   if not files:
     raise errors.YapfError('Input filenames did not match any python files')
 
@@ -272,6 +279,7 @@ def _FormatFile(filename,
                 print_diff=False,
                 verify=False,
                 verbose=False):
+  """Format an individual file."""
   if verbose:
     print('Reformatting %s' % filename)
   if style_config is None and not no_local_style:
@@ -290,6 +298,8 @@ def _FormatFile(filename,
       file_resources.WriteReformattedCode(filename, reformatted_code, encoding,
                                           in_place)
     return has_change
+  except tokenize.TokenError as e:
+    raise errors.YapfError('%s:%s:%s' % (filename, e.args[1][0], e.args[0]))
   except SyntaxError as e:
     e.filename = filename
     raise

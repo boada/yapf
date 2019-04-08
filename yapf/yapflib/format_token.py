@@ -36,6 +36,8 @@ class Subtype(object):
   NONE = 0
   UNARY_OPERATOR = 1
   BINARY_OPERATOR = 2
+  A_EXPR_OPERATOR = 22
+  M_EXPR_OPERATOR = 23
   SUBSCRIPT_COLON = 3
   SUBSCRIPT_BRACKET = 4
   DEFAULT_OR_NAMED_ASSIGN = 5
@@ -55,6 +57,7 @@ class Subtype(object):
   DECORATOR = 18
   TYPED_NAME = 19
   TYPED_NAME_ARG_LIST = 20
+  SIMPLE_EXPRESSION = 24
 
 
 def _TabbedContinuationAlignPadding(spaces, align_style, tab_width,
@@ -86,6 +89,7 @@ class FormatToken(object):
   the code.
 
   Attributes:
+    node: The PyTree node this token represents.
     next_token: The token in the unwrapped line after this token or None if this
       is the last token in the unwrapped line.
     previous_token: The token in the unwrapped line before this token or None if
@@ -166,8 +170,8 @@ class FormatToken(object):
       else:
         indent_before = '\t' * indent_level + ' ' * spaces
     else:
-      indent_before = (
-          ' ' * indent_level * style.Get('INDENT_WIDTH') + ' ' * spaces)
+      indent_before = (' ' * indent_level * style.Get('INDENT_WIDTH') +
+                       ' ' * spaces)
 
     if self.is_comment:
       comment_lines = [s.lstrip() for s in self.value.splitlines()]
@@ -177,15 +181,15 @@ class FormatToken(object):
       self.value = self.node.value
 
     if not self.whitespace_prefix:
-      self.whitespace_prefix = (
-          '\n' * (self.newlines or newlines_before) + indent_before)
+      self.whitespace_prefix = ('\n' * (self.newlines or newlines_before) +
+                                indent_before)
     else:
       self.whitespace_prefix += indent_before
 
   def AdjustNewlinesBefore(self, newlines_before):
     """Change the number of newlines before this token."""
-    self.whitespace_prefix = (
-        '\n' * newlines_before + self.whitespace_prefix.lstrip('\n'))
+    self.whitespace_prefix = ('\n' * newlines_before +
+                              self.whitespace_prefix.lstrip('\n'))
 
   def RetainHorizontalSpacing(self, first_column, depth):
     """Retains a token's horizontal spacing."""
@@ -282,6 +286,30 @@ class FormatToken(object):
 
   @property
   @py3compat.lru_cache()
+  def is_a_expr_op(self):
+    """Token is an a_expr operator."""
+    return Subtype.A_EXPR_OPERATOR in self.subtypes
+
+  @property
+  @py3compat.lru_cache()
+  def is_m_expr_op(self):
+    """Token is an m_expr operator."""
+    return Subtype.M_EXPR_OPERATOR in self.subtypes
+
+  @property
+  @py3compat.lru_cache()
+  def is_arithmetic_op(self):
+    """Token is an arithmetic operator."""
+    return self.is_a_expr_op or self.is_m_expr_op
+
+  @property
+  @py3compat.lru_cache()
+  def is_simple_expr(self):
+    """Token is an operator in a simple expression."""
+    return Subtype.SIMPLE_EXPRESSION in self.subtypes
+
+  @property
+  @py3compat.lru_cache()
   def name(self):
     """A string representation of the node's name."""
     return pytree_utils.NodeName(self.node)
@@ -315,18 +343,14 @@ class FormatToken(object):
   @property
   @py3compat.lru_cache()
   def is_multiline_string(self):
-    """A multiline string."""
-    if py3compat.PY3:
-      prefix = '('
-      prefix += 'r|u|R|U|f|F|fr|Fr|fR|FR|rf|rF|Rf|RF'  # strings
-      prefix += '|b|B|br|Br|bR|BR|rb|rB|Rb|RB'  # bytes
-      prefix += ')?'
-    else:
-      prefix = '[uUbB]?[rR]?'
+    """Test if this string is a multiline string.
 
-    regex = r'^{prefix}(?P<delim>"""|\'\'\').*(?P=delim)$'.format(prefix=prefix)
-    return (self.is_string and
-            re.match(regex, self.value, re.DOTALL) is not None)
+    Returns:
+      A multiline string always ends with triple quotes, so if it is a string
+      token, inspect the last 3 characters and return True if it is a triple
+      double or triple single quote mark.
+    """
+    return self.is_string and self.value.endswith(('"""', "'''"))
 
   @property
   @py3compat.lru_cache()

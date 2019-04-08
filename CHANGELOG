@@ -2,7 +2,65 @@
 # All notable changes to this project will be documented in this file.
 # This project adheres to [Semantic Versioning](http://semver.org/).
 
-## [0.25.0] UNRELEASED
+## [0.27.0] 2019-04-07
+### Added
+- `SPLIT_BEFORE_ARITHMETIC_OPERATOR` splits before an arithmetic operator when
+  set. `SPLIT_PENALTY_ARITHMETIC_OPERATOR` allows you to set the split penalty
+  around arithmetic operators.
+### Changed
+- Catch lib2to3's "TokenError" exception and output a nicer message.
+### Fixed
+- Parse integer lists correctly, removing quotes if the list is within a
+  string.
+- Adjust the penalties of bitwise operands for '&' and '^', similar to '|'.
+- Avoid splitting after opening parens if SPLIT_BEFORE_FIRST_ARGUMENT is set
+  to False.
+- Adjust default SPLIT_PENALTY_AFTER_OPENING_BRACKET.
+- Re-enable removal of extra lines on the boundaries of formatted regions.
+- Adjust list splitting to avoid splitting before a dictionary element, because
+  those are likely to be split anyway. If we do split, it leads to horrible
+  looking code.
+- Dictionary arguments were broken in a recent version. It resulted in
+  unreadable formatting, where the remaining arguments were indented far more
+  than the dictionary. Fixed so that if the dictionary is the first argument in
+  a function call and doesn't fit on a single line, then it forces a split.
+- Improve the connectiveness between items in a list. This prevents random
+  splitting when it's not 100% necessary.
+- Don't remove a comment attached to a previous object just because it's part
+  of the "prefix" of a function/class node.
+
+## [0.26.0] 2019-02-08
+### Added
+- `ALLOW_SPLIT_BEFORE_DEFAULT_OR_NAMED_ASSIGNS` allows us to split before
+  default / named assignments.
+- `ARITHMETIC_PRECEDENCE_INDICATION` removes spacing around binary operators
+  if they have higher precedence than other operators in the same expression.
+### Changed
+- `SPACES_BEFORE_COMMENT` can now be assigned to a specific value (standard
+  behavior) or a list of column values. When assigned to a list, trailing
+  comments will be horizontally aligned to the first column value within
+  the list that is greater than the maximum line length in the block.
+- Don't modify the vertical spacing of a line that has a comment "pylint:
+  disable=line-too-long". The line is expected to be too long.
+- improved `CONTINUATION_ALIGN_STYLE` to accept quoted or underline-separated
+  option value for passing option with command line arguments.
+### Fixed
+- When retrieving the opening bracket make sure that it's actually an opening
+  bracket.
+- Don't completely deny a lambda formatting if it goes over the column limit.
+  Split only if absolutely necessary.
+- Bump up penalty for splitting before a dot ('.').
+- Ignore pseudo tokens when calculating split penalties.
+- Increase the penalty for splitting before the first bit of a subscript.
+- Improve splitting before dictionary values. Look more closely to see if the
+  dictionary entry is a container. If so, then it's probably split over
+  multiple lines with the opening bracket on the same line as the key.
+  Therefore, we shouldn't enforce a split because of that.
+- Increase split penalty around exponent operator.
+- Correct spacing when using binary operators on strings with the
+  `NO_SPACES_AROUND_SELECTED_BINARY_OPERATORS` option enabled.
+
+## [0.25.0] 2018-11-25
 ### Added
 - Added `INDENT_BLANK_LINES` knob to select whether the blank lines are empty
   or indented consistently with the current block.

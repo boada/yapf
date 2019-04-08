@@ -729,6 +729,13 @@ xxxxxxxxxxx, yyyyyyyyyyyy, vvvvvvvvv)
     uwlines = yapf_test_helper.ParseAndUnwrap(code)
     self.assertCodeEqual(code, reformatter.Reformat(uwlines))
 
+  def testSpaceBetweenStringAndParentheses(self):
+    code = textwrap.dedent("""\
+        b = '0' ('hello')
+        """)
+    uwlines = yapf_test_helper.ParseAndUnwrap(code)
+    self.assertCodeEqual(code, reformatter.Reformat(uwlines))
+
   def testMultilineString(self):
     code = textwrap.dedent("""\
         code = textwrap.dedent('''\
@@ -1255,10 +1262,9 @@ s = 'foo \\
         a = foo.bar({'xxxxxxxxxxxxxxxxxxxxxxx' 'yyyyyyyyyyyyyyyyyyyyyyyyyy': baz[42]} + 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' 'bbbbbbbbbbbbbbbbbbbbbbbbbb' 'cccccccccccccccccccccccccccccccc' 'ddddddddddddddddddddddddddddd')
         """)
     expected_formatted_code = textwrap.dedent("""\
-        a = foo.bar({
-            'xxxxxxxxxxxxxxxxxxxxxxx'
-            'yyyyyyyyyyyyyyyyyyyyyyyyyy': baz[42]
-        } + 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+        a = foo.bar({'xxxxxxxxxxxxxxxxxxxxxxx'
+                     'yyyyyyyyyyyyyyyyyyyyyyyyyy': baz[42]} +
+                    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
                     'bbbbbbbbbbbbbbbbbbbbbbbbbb'
                     'cccccccccccccccccccccccccccccccc'
                     'ddddddddddddddddddddddddddddd')
@@ -1340,7 +1346,7 @@ s = 'foo \\
                 return True
         """)
     uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
-    self.assertEqual(expected_code, reformatter.Reformat(uwlines))
+    self.assertCodeEqual(expected_code, reformatter.Reformat(uwlines))
 
   def testDictSetGenerator(self):
     code = textwrap.dedent("""\
@@ -1890,8 +1896,8 @@ class A(object):
               if True:
                 if True:
                   if True:
-                    boxes[id_] = np.concatenate((points.min(axis=0),
-                                                 qoints.max(axis=0)))
+                    boxes[id_] = np.concatenate(
+                        (points.min(axis=0), qoints.max(axis=0)))
         """)
     uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
     self.assertCodeEqual(expected_formatted_code, reformatter.Reformat(uwlines))
@@ -2196,7 +2202,7 @@ class A(object):
              not True)
         """)
     uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
-    self.assertEqual(expected_code, reformatter.Reformat(uwlines))
+    self.assertCodeEqual(expected_code, reformatter.Reformat(uwlines))
 
   def testNamedAssignNotAtEndOfLine(self):
     unformatted_code = textwrap.dedent("""\
@@ -2214,7 +2220,7 @@ class A(object):
               pass
         """)
     uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
-    self.assertEqual(expected_code, reformatter.Reformat(uwlines))
+    self.assertCodeEqual(expected_code, reformatter.Reformat(uwlines))
 
   def testBlankLineBeforeClassDocstring(self):
     unformatted_code = textwrap.dedent('''\
@@ -2239,7 +2245,7 @@ class A(object):
             pass
         ''')
     uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
-    self.assertEqual(expected_code, reformatter.Reformat(uwlines))
+    self.assertCodeEqual(expected_code, reformatter.Reformat(uwlines))
 
     try:
       style.SetGlobalStyle(
@@ -2295,7 +2301,7 @@ class A(object):
           pass
         ''')
     uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
-    self.assertEqual(expected_code, reformatter.Reformat(uwlines))
+    self.assertCodeEqual(expected_code, reformatter.Reformat(uwlines))
 
     try:
       style.SetGlobalStyle(
@@ -2340,7 +2346,7 @@ class A(object):
               ('a string that may be too long %s' % 'M15'))
         """)
     uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
-    self.assertEqual(expected_code, reformatter.Reformat(uwlines))
+    self.assertCodeEqual(expected_code, reformatter.Reformat(uwlines))
 
   def testSubscriptExpression(self):
     code = textwrap.dedent("""\
@@ -2374,7 +2380,7 @@ class A(object):
           ]
         """)
     uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
-    self.assertEqual(expected_code, reformatter.Reformat(uwlines))
+    self.assertCodeEqual(expected_code, reformatter.Reformat(uwlines))
 
   def testEllipses(self):
     unformatted_code = textwrap.dedent("""\
@@ -2386,7 +2392,7 @@ class A(object):
         Y = X if ... else X
         """)
     uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
-    self.assertEqual(expected_code, reformatter.Reformat(uwlines))
+    self.assertCodeEqual(expected_code, reformatter.Reformat(uwlines))
 
   def testPseudoParens(self):
     unformatted_code = """\
@@ -2404,7 +2410,7 @@ my_dict = {
 }
 """
     uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
-    self.assertEqual(expected_code, reformatter.Reformat(uwlines))
+    self.assertCodeEqual(expected_code, reformatter.Reformat(uwlines))
 
   def testSplittingBeforeFirstArgumentOnFunctionCall(self):
     """Tests split_before_first_argument on a function call."""
@@ -2591,6 +2597,59 @@ x = [1, 2, 3, 4, 5, 6, 7,]
                            reformatter.Reformat(uwlines))
     finally:
       style.SetGlobalStyle(style.CreateChromiumStyle())
+
+  def testMultipleDictionariesInList(self):
+    unformatted_code = """\
+class A:
+    def b():
+        d = {
+            "123456": [
+                {
+                    "12": "aa"
+                },
+                {
+                    "12": "bb"
+                },
+                {
+                    "12": "cc",
+                    "1234567890": {
+                        "1234567": [{
+                            "12": "dd",
+                            "12345": "text 1"
+                        }, {
+                            "12": "ee",
+                            "12345": "text 2"
+                        }]
+                    }
+                }
+            ]
+        }
+"""
+    expected_formatted_code = """\
+class A:
+
+  def b():
+    d = {
+        "123456": [{
+            "12": "aa"
+        }, {
+            "12": "bb"
+        }, {
+            "12": "cc",
+            "1234567890": {
+                "1234567": [{
+                    "12": "dd",
+                    "12345": "text 1"
+                }, {
+                    "12": "ee",
+                    "12345": "text 2"
+                }]
+            }
+        }]
+    }
+"""
+    uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
+    self.assertCodeEqual(expected_formatted_code, reformatter.Reformat(uwlines))
 
 
 if __name__ == '__main__':

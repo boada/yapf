@@ -140,7 +140,7 @@ has been YAPF-formatted.
 Excluding files from formatting (.yapfignore)
 ---------------------------------------------
 
-In addition to exlude patterns provided on commandline, YAPF looks for additional 
+In addition to exclude patterns provided on commandline, YAPF looks for additional 
 patterns specified in a file named ``.yapfignore`` located in the working directory from 
 which YAPF is invoked.
 
@@ -327,8 +327,34 @@ Knobs
                  value,
         }
 
+``ALLOW_SPLIT_BEFORE_DEFAULT_OR_NAMED_ASSIGNS``
+    Allow splitting before a default / named assignment in an argument list.
+
 ``ALLOW_SPLIT_BEFORE_DICT_VALUE``
     Allow splits before the dictionary value.
+
+``ARITHMETIC_PRECEDENCE_INDICATION``
+    Let spacing indicate operator precedence. For example:
+
+    .. code-block:: python
+
+        a = 1 * 2 + 3 / 4
+        b = 1 / 2 - 3 * 4
+        c = (1 + 2) * (3 - 4)
+        d = (1 - 2) / (3 + 4)
+        e = 1 * 2 - 3
+        f = 1 + 2 + 3 + 4
+
+    will be formatted as follows to indicate precedence:
+
+    .. code-block:: python
+
+        a = 1*2 + 3/4
+        b = 1/2 - 3*4
+        c = (1+2) * (3-4)
+        d = (1-2) / (3+4)
+        e = 1*2 - 3
+        f = 1 + 2 + 3 + 4
 
 ``BLANK_LINE_BEFORE_NESTED_CLASS_OR_DEF``
     Insert a blank line before a ``def`` or ``class`` immediately nested within
@@ -484,6 +510,49 @@ Knobs
 
 ``SPACES_BEFORE_COMMENT``
     The number of spaces required before a trailing comment.
+    This can be a single value (representing the number of spaces
+    before each trailing comment) or list of of values (representing
+    alignment column values; trailing comments within a block will
+    be aligned to the first column value that is greater than the maximum
+    line length within the block). For example:
+    
+    With spaces_before_comment=5:
+    
+    .. code-block:: python
+    
+        1 + 1 # Adding values
+    
+    will be formatted as:
+    
+    .. code-block:: python
+    
+        1 + 1     # Adding values <-- 5 spaces between the end of the statement and comment
+    
+    With spaces_before_comment=15, 20:
+    
+    .. code-block:: python
+    
+        1 + 1 # Adding values
+        two + two # More adding
+    
+        longer_statement # This is a longer statement
+        short # This is a shorter statement
+    
+        a_very_long_statement_that_extends_beyond_the_final_column # Comment
+        short # This is a shorter statement
+    
+    will be formatted as:
+    
+    .. code-block:: python
+    
+        1 + 1          # Adding values <-- end of line comments in block aligned to col 15
+        two + two      # More adding
+    
+        longer_statement    # This is a longer statement <-- end of line comments in block aligned to col 20
+        short               # This is a shorter statement
+    
+        a_very_long_statement_that_extends_beyond_the_final_column  # Comment <-- the end of line comments are aligned based on the line length
+        short                                                       # This is a shorter statement
 
 ``SPACE_BETWEEN_ENDING_COMMA_AND_CLOSING_BRACKET``
     Insert a space between the ending comma and closing bracket of a list, etc.
@@ -496,8 +565,11 @@ Knobs
     line that is too long, split such that all elements are on a single line.
 
 ``SPLIT_BEFORE_BITWISE_OPERATOR``
-    Set to ``True`` to prefer splitting before ``&``, ``|`` or ``^`` rather
-    than after.
+    Set to True to prefer splitting before '&', '|' or '^' rather than after.
+
+``SPLIT_BEFORE_ARITHMETIC_OPERATOR``
+    Set to True to prefer splitting before '+', '-', '*', '/', '//', or '@'
+    rather than after.
 
 ``SPLIT_BEFORE_CLOSING_BRACKET``
     Split before the closing bracket if a list or dict literal doesn't fit on
@@ -569,6 +641,10 @@ Knobs
 
 ``SPLIT_PENALTY_AFTER_UNARY_OPERATOR``
     The penalty for splitting the line after a unary operator.
+
+``SPLIT_PENALTY_ARITHMETIC_OPERATOR``
+    The penalty of splitting the line around the ``+``, ``-``, ``*``, ``/``,
+    ``//``, ``%``, and ``@`` operators.
 
 ``SPLIT_PENALTY_BEFORE_IF_EXPR``
     The penalty for splitting right before an ``if`` expression.
@@ -670,6 +746,31 @@ Can I Use YAPF In My Program?
 Please do! YAPF was designed to be used as a library as well as a command line
 tool. This means that a tool or IDE plugin is free to use YAPF.
 
+-----------------------------------------
+I still get non Pep8 compliant code! Why?
+-----------------------------------------
+
+YAPF tries very hard to be fully PEP 8 compliant. However, it is paramount
+to not risk altering the semantics of your code. Thus, YAPF tries to be as 
+safe as possible and does not change the token stream 
+(e.g., by adding parenthesis).
+All these cases however, can be easily fixed manually. For instance,
+
+.. code-block:: python
+
+    from my_package import my_function_1, my_function_2, my_function_3, my_function_4, my_function_5
+
+    FOO = my_variable_1 + my_variable_2 + my_variable_3 + my_variable_4 + my_variable_5 + my_variable_6 + my_variable_7 + my_variable_8
+
+won't be split, but you can easily get it right by just adding parenthesis:
+
+.. code-block:: python
+
+    from my_package import (my_function_1, my_function_2, my_function_3,
+                            my_function_4, my_function_5)
+
+    FOO = (my_variable_1 + my_variable_2 + my_variable_3 + my_variable_4 +
+           my_variable_5 + my_variable_6 + my_variable_7 + my_variable_8)
 
 Gory Details
 ============

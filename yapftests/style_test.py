@@ -27,14 +27,25 @@ from yapftests import utils
 class UtilsTest(unittest.TestCase):
 
   def testContinuationAlignStyleStringConverter(self):
-    self.assertEqual(style._ContinuationAlignStyleStringConverter(''), 'SPACE')
-    self.assertEqual(
-        style._ContinuationAlignStyleStringConverter('space'), 'SPACE')
-    self.assertEqual(
-        style._ContinuationAlignStyleStringConverter('fixed'), 'FIXED')
-    self.assertEqual(
-        style._ContinuationAlignStyleStringConverter('valign-right'),
-        'VALIGN-RIGHT')
+    for cont_align_space in ('', 'space', '"space"', '\'space\''):
+      self.assertEqual(
+          style._ContinuationAlignStyleStringConverter(cont_align_space),
+          'SPACE')
+    for cont_align_fixed in ('fixed', '"fixed"', '\'fixed\''):
+      self.assertEqual(
+          style._ContinuationAlignStyleStringConverter(cont_align_fixed),
+          'FIXED')
+    for cont_align_valignright in (
+        'valign-right',
+        '"valign-right"',
+        '\'valign-right\'',
+        'valign_right',
+        '"valign_right"',
+        '\'valign_right\'',
+    ):
+      self.assertEqual(
+          style._ContinuationAlignStyleStringConverter(cont_align_valignright),
+          'VALIGN-RIGHT')
     with self.assertRaises(ValueError) as ctx:
       style._ContinuationAlignStyleStringConverter('blahblah')
     self.assertIn("unknown continuation align style: 'blahblah'",
@@ -52,6 +63,15 @@ class UtilsTest(unittest.TestCase):
     self.assertEqual(style._BoolConverter('1'), True)
     self.assertEqual(style._BoolConverter('false'), False)
     self.assertEqual(style._BoolConverter('0'), False)
+
+  def testIntListConverter(self):
+    self.assertEqual(style._IntListConverter('1, 2, 3'), [1, 2, 3])
+    self.assertEqual(style._IntListConverter('[ 1, 2, 3 ]'), [1, 2, 3])
+    self.assertEqual(style._IntListConverter('[ 1, 2, 3, ]'), [1, 2, 3])
+
+  def testIntOrIntListConverter(self):
+    self.assertEqual(style._IntOrIntListConverter('10'), 10)
+    self.assertEqual(style._IntOrIntListConverter('1, 2, 3'), [1, 2, 3])
 
 
 def _LooksLikeChromiumStyle(cfg):
@@ -76,7 +96,7 @@ def _LooksLikeFacebookStyle(cfg):
 class PredefinedStylesByNameTest(unittest.TestCase):
 
   @classmethod
-  def setUpClass(cls):
+  def setUpClass(cls):  # pylint: disable=g-missing-super-call
     style.SetGlobalStyle(style.CreatePEP8Style())
 
   def testDefault(self):
@@ -108,12 +128,12 @@ class PredefinedStylesByNameTest(unittest.TestCase):
 class StyleFromFileTest(unittest.TestCase):
 
   @classmethod
-  def setUpClass(cls):
+  def setUpClass(cls):  # pylint: disable=g-missing-super-call
     cls.test_tmpdir = tempfile.mkdtemp()
     style.SetGlobalStyle(style.CreatePEP8Style())
 
   @classmethod
-  def tearDownClass(cls):
+  def tearDownClass(cls):  # pylint: disable=g-missing-super-call
     shutil.rmtree(cls.test_tmpdir)
 
   def testDefaultBasedOnStyle(self):
@@ -224,7 +244,7 @@ class StyleFromFileTest(unittest.TestCase):
 class StyleFromDict(unittest.TestCase):
 
   @classmethod
-  def setUpClass(cls):
+  def setUpClass(cls):  # pylint: disable=g-missing-super-call
     style.SetGlobalStyle(style.CreatePEP8Style())
 
   def testDefaultBasedOnStyle(self):
@@ -249,7 +269,7 @@ class StyleFromDict(unittest.TestCase):
 class StyleFromCommandLine(unittest.TestCase):
 
   @classmethod
-  def setUpClass(cls):
+  def setUpClass(cls):  # pylint: disable=g-missing-super-call
     style.SetGlobalStyle(style.CreatePEP8Style())
 
   def testDefaultBasedOnStyle(self):

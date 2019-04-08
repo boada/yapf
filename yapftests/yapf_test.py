@@ -24,11 +24,14 @@ import tempfile
 import textwrap
 import unittest
 
+from lib2to3.pgen2 import tokenize
+
 from yapf.yapflib import py3compat
 from yapf.yapflib import style
 from yapf.yapflib import yapf_api
 
 from yapftests import utils
+from yapftests import yapf_test_helper
 
 ROOT_DIR = os.path.dirname(os.path.abspath(os.path.dirname(__file__)))
 
@@ -36,12 +39,12 @@ ROOT_DIR = os.path.dirname(os.path.abspath(os.path.dirname(__file__)))
 YAPF_BINARY = [sys.executable, '-m', 'yapf', '--verify', '--no-local-style']
 
 
-class FormatCodeTest(unittest.TestCase):
+class FormatCodeTest(yapf_test_helper.YAPFTest):
 
   def _Check(self, unformatted_code, expected_formatted_code):
     formatted_code, _ = yapf_api.FormatCode(
         unformatted_code, style_config='chromium')
-    self.assertEqual(expected_formatted_code, formatted_code)
+    self.assertCodeEqual(expected_formatted_code, formatted_code)
 
   def testSimple(self):
     unformatted_code = textwrap.dedent("""\
@@ -67,10 +70,10 @@ class FormatCodeTest(unittest.TestCase):
 
 class FormatFileTest(unittest.TestCase):
 
-  def setUp(self):
+  def setUp(self):  # pylint: disable=g-missing-super-call
     self.test_tmpdir = tempfile.mkdtemp()
 
-  def tearDown(self):
+  def tearDown(self):  # pylint: disable=g-missing-super-call
     shutil.rmtree(self.test_tmpdir)
 
   def assertCodeEqual(self, expected_code, code):
@@ -229,7 +232,7 @@ class FormatFileTest(unittest.TestCase):
         """)
     with utils.TempFileContents(self.test_tmpdir, unformatted_code) as filepath:
       diff, _, _ = yapf_api.FormatFile(filepath, print_diff=True)
-      self.assertTrue(u'+  pass' in diff)
+      self.assertIn(u'+  pass', diff)
 
   def testFormatFileInPlace(self):
     unformatted_code = u'True==False\n'
@@ -381,11 +384,11 @@ class CommandLineTest(unittest.TestCase):
   """Test how calling yapf from the command line acts."""
 
   @classmethod
-  def setUpClass(cls):
+  def setUpClass(cls):  # pylint: disable=g-missing-super-call
     cls.test_tmpdir = tempfile.mkdtemp()
 
   @classmethod
-  def tearDownClass(cls):
+  def tearDownClass(cls):  # pylint: disable=g-missing-super-call
     shutil.rmtree(cls.test_tmpdir)
 
   def assertYapfReformats(self,
@@ -512,7 +515,26 @@ class CommandLineTest(unittest.TestCase):
     style_file = textwrap.dedent(u'''\
         [style]
         based_on_style = chromium
-        SPACES_BEFORE_COMMENT = 4
+        spaces_before_comment = 4
+        ''')
+    with utils.TempFileContents(self.test_tmpdir, style_file) as stylepath:
+      self.assertYapfReformats(
+          unformatted_code,
+          expected_formatted_code,
+          extra_options=['--style={0}'.format(stylepath)])
+
+  def testSetCustomStyleSpacesBeforeComment(self):
+    unformatted_code = textwrap.dedent("""\
+        a_very_long_statement_that_extends_way_beyond # Comment
+        short # This is a shorter statement
+        """)
+    expected_formatted_code = textwrap.dedent("""\
+        a_very_long_statement_that_extends_way_beyond # Comment
+        short                                         # This is a shorter statement
+        """)
+    style_file = textwrap.dedent(u'''\
+        [style]
+        spaces_before_comment = 15, 20
         ''')
     with utils.TempFileContents(self.test_tmpdir, style_file) as stylepath:
       self.assertYapfReformats(
@@ -1409,6 +1431,10 @@ class BadInputTest(unittest.TestCase):
     code = '  a = 1\n'
     self.assertRaises(SyntaxError, yapf_api.FormatCode, code)
 
+  def testBadCode(self):
+    code = 'x = """hello\n'
+    self.assertRaises(tokenize.TokenError, yapf_api.FormatCode, code)
+
 
 class DiffIndentTest(unittest.TestCase):
 
@@ -1433,6 +1459,286 @@ class DiffIndentTest(unittest.TestCase):
         for i in range(5):
            print('bar')
            """)
+    self._Check(unformatted_code, expected_formatted_code)
+
+
+class HorizontallyAlignedTrailingCommentsTest(yapf_test_helper.YAPFTest):
+
+  @staticmethod
+  def _OwnStyle():
+    my_style = style.CreatePEP8Style()
+    my_style['SPACES_BEFORE_COMMENT'] = [
+        15,
+        25,
+        35,
+    ]
+    return my_style
+
+  def _Check(self, unformatted_code, expected_formatted_code):
+    formatted_code, _ = yapf_api.FormatCode(
+        unformatted_code, style_config=style.SetGlobalStyle(self._OwnStyle()))
+    self.assertCodeEqual(expected_formatted_code, formatted_code)
+
+  def testSimple(self):
+    unformatted_code = textwrap.dedent("""\
+        foo = '1' # Aligned at first list value
+
+        foo = '2__<15>' # Aligned at second list value
+
+        foo = '3____________<25>' # Aligned at third list value
+
+        foo = '4______________________<35>' # Aligned beyond list values
+        """)
+    expected_formatted_code = textwrap.dedent("""\
+        foo = '1'     # Aligned at first list value
+        
+        foo = '2__<15>'         # Aligned at second list value
+        
+        foo = '3____________<25>'         # Aligned at third list value
+        
+        foo = '4______________________<35>' # Aligned beyond list values
+        """)
+    self._Check(unformatted_code, expected_formatted_code)
+
+  def testBlock(self):
+    unformatted_code = textwrap.dedent("""\
+        func(1)     # Line 1
+        func(2) # Line 2
+        # Line 3
+        func(3)                             # Line 4
+                                            # Line 5
+                                            # Line 6
+        """)
+    expected_formatted_code = textwrap.dedent("""\
+        func(1)       # Line 1
+        func(2)       # Line 2
+                      # Line 3
+        func(3)       # Line 4
+                      # Line 5
+                      # Line 6
+        """)
+    self._Check(unformatted_code, expected_formatted_code)
+
+  def testBlockWithLongLine(self):
+    unformatted_code = textwrap.dedent("""\
+        func(1)     # Line 1
+        func___________________(2) # Line 2
+        # Line 3
+        func(3)                             # Line 4
+                                            # Line 5
+                                            # Line 6
+        """)
+    expected_formatted_code = textwrap.dedent("""\
+        func(1)                           # Line 1
+        func___________________(2)        # Line 2
+                                          # Line 3
+        func(3)                           # Line 4
+                                          # Line 5
+                                          # Line 6
+        """)
+    self._Check(unformatted_code, expected_formatted_code)
+
+  def testBlockFuncSuffix(self):
+    unformatted_code = textwrap.dedent("""\
+        func(1)     # Line 1
+        func(2) # Line 2
+        # Line 3
+        func(3)                             # Line 4
+                                        # Line 5
+                                    # Line 6
+
+        def Func():
+            pass
+        """)
+    expected_formatted_code = textwrap.dedent("""\
+        func(1)       # Line 1
+        func(2)       # Line 2
+                      # Line 3
+        func(3)       # Line 4
+                      # Line 5
+                      # Line 6
+
+
+        def Func():
+            pass
+        """)
+    self._Check(unformatted_code, expected_formatted_code)
+
+  def testBlockCommentSuffix(self):
+    unformatted_code = textwrap.dedent("""\
+        func(1)     # Line 1
+        func(2) # Line 2
+        # Line 3
+        func(3)                             # Line 4
+                                        # Line 5 - SpliceComments makes this part of the previous block
+                                    # Line 6
+
+                                            # Aligned with prev comment block
+        """)
+    expected_formatted_code = textwrap.dedent("""\
+        func(1)       # Line 1
+        func(2)       # Line 2
+                      # Line 3
+        func(3)       # Line 4
+                      # Line 5 - SpliceComments makes this part of the previous block
+                      # Line 6
+
+                      # Aligned with prev comment block
+        """)
+    self._Check(unformatted_code, expected_formatted_code)
+
+  def testBlockIndentedFuncSuffix(self):
+    unformatted_code = textwrap.dedent("""\
+        if True:
+            func(1)     # Line 1
+            func(2) # Line 2
+            # Line 3
+            func(3)                             # Line 4
+                                                # Line 5 - SpliceComments makes this a new block
+                                                # Line 6
+
+                                                # Aligned with Func
+
+            def Func():
+                pass
+        """)
+    expected_formatted_code = textwrap.dedent("""\
+        if True:
+            func(1)   # Line 1
+            func(2)   # Line 2
+                      # Line 3
+            func(3)   # Line 4
+                      
+            # Line 5 - SpliceComments makes this a new block
+            # Line 6
+
+            # Aligned with Func
+
+
+            def Func():
+                pass
+        """)
+    self._Check(unformatted_code, expected_formatted_code)
+
+  def testBlockIndentedCommentSuffix(self):
+    unformatted_code = textwrap.dedent("""\
+        if True:
+            func(1)     # Line 1
+            func(2) # Line 2
+            # Line 3
+            func(3)                             # Line 4
+                                                # Line 5
+                                                # Line 6
+            
+                                                # Not aligned
+        """)
+    expected_formatted_code = textwrap.dedent("""\
+        if True:
+            func(1)   # Line 1
+            func(2)   # Line 2
+                      # Line 3
+            func(3)   # Line 4
+                      # Line 5
+                      # Line 6
+
+            # Not aligned
+        """)
+    self._Check(unformatted_code, expected_formatted_code)
+
+  def testBlockMultiIndented(self):
+    unformatted_code = textwrap.dedent("""\
+        if True:
+            if True:
+                if True:
+                    func(1)     # Line 1
+                    func(2) # Line 2
+                    # Line 3
+                    func(3)                             # Line 4
+                                                        # Line 5
+                                                        # Line 6
+                    
+                                                        # Not aligned
+        """)
+    expected_formatted_code = textwrap.dedent("""\
+        if True:
+            if True:
+                if True:
+                    func(1)     # Line 1
+                    func(2)     # Line 2
+                                # Line 3
+                    func(3)     # Line 4
+                                # Line 5
+                                # Line 6
+        
+                    # Not aligned
+        """)
+    self._Check(unformatted_code, expected_formatted_code)
+
+  def testArgs(self):
+    unformatted_code = textwrap.dedent("""\
+        def MyFunc(
+            arg1,   # Desc 1
+            arg2,   # Desc 2
+            a_longer_var_name,  # Desc 3
+            arg4,
+            arg5,   # Desc 5
+            arg6,
+        ):
+            pass
+        """)
+    expected_formatted_code = textwrap.dedent("""\
+        def MyFunc(
+                arg1,                     # Desc 1
+                arg2,                     # Desc 2
+                a_longer_var_name,        # Desc 3
+                arg4,
+                arg5,                     # Desc 5
+                arg6,
+        ):
+            pass
+        """)
+    self._Check(unformatted_code, expected_formatted_code)
+
+  def testDisableBlock(self):
+    unformatted_code = textwrap.dedent("""\
+        a() # comment 1
+        b() # comment 2
+
+        # yapf: disable
+        c() # comment 3
+        d()   # comment 4
+        # yapf: enable
+
+        e() # comment 5
+        f() # comment 6
+        """)
+    expected_formatted_code = textwrap.dedent("""\
+        a()           # comment 1
+        b()           # comment 2
+
+        # yapf: disable
+        c() # comment 3
+        d()   # comment 4
+        # yapf: enable
+
+        e()           # comment 5
+        f()           # comment 6
+        """)
+    self._Check(unformatted_code, expected_formatted_code)
+
+  def testDisabledLine(self):
+    unformatted_code = textwrap.dedent("""\
+        short # comment 1
+        do_not_touch1 # yapf: disable
+        do_not_touch2   # yapf: disable
+        a_longer_statement # comment 2
+        """)
+    expected_formatted_code = textwrap.dedent("""\
+        short                   # comment 1
+        do_not_touch1 # yapf: disable
+        do_not_touch2   # yapf: disable
+        a_longer_statement      # comment 2
+        """)
     self._Check(unformatted_code, expected_formatted_code)
 
 

@@ -165,8 +165,8 @@ class TestsForPEP8Style(yapf_test_helper.YAPFTest):
         """)
     expected_formatted_code = textwrap.dedent("""\
         if True:
-            runtime_mins = (
-                program_end_time - program_start_time).total_seconds() / 60.0
+            runtime_mins = (program_end_time -
+                            program_start_time).total_seconds() / 60.0
         """)
     uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
     self.assertCodeEqual(expected_formatted_code, reformatter.Reformat(uwlines))
@@ -190,8 +190,10 @@ class TestsForPEP8Style(yapf_test_helper.YAPFTest):
         if (aaaaaaaaaaaaaa + bbbbbbbbbbbbbbbb == ccccccccccccccccc and xxxxxxxxxxxxx
                 or yyyyyyyyyyyyyyyyy):
             pass
-        elif (xxxxxxxxxxxxxxx(
-                aaaaaaaaaaa, bbbbbbbbbbbbbb, cccccccccccc, dddddddddd=None)):
+        elif (xxxxxxxxxxxxxxx(aaaaaaaaaaa,
+                              bbbbbbbbbbbbbb,
+                              cccccccccccc,
+                              dddddddddd=None)):
             pass
 
 
@@ -430,6 +432,64 @@ class TestsForPEP8Style(yapf_test_helper.YAPFTest):
                            reformatter.Reformat(uwlines))
     finally:
       style.SetGlobalStyle(style.CreatePEP8Style())
+
+  def testBitwiseOperandSplitting(self):
+    unformatted_code = """\
+def _():
+    include_values = np.where(
+                (cdffile['Quality_Flag'][:] >= 5) & (
+                cdffile['Day_Night_Flag'][:] == 1) & (
+                cdffile['Longitude'][:] >= select_lon - radius) & (
+                cdffile['Longitude'][:] <= select_lon + radius) & (
+                cdffile['Latitude'][:] >= select_lat - radius) & (
+                cdffile['Latitude'][:] <= select_lat + radius))
+"""
+    expected_code = """\
+def _():
+    include_values = np.where(
+        (cdffile['Quality_Flag'][:] >= 5) & (cdffile['Day_Night_Flag'][:] == 1)
+        & (cdffile['Longitude'][:] >= select_lon - radius)
+        & (cdffile['Longitude'][:] <= select_lon + radius)
+        & (cdffile['Latitude'][:] >= select_lat - radius)
+        & (cdffile['Latitude'][:] <= select_lat + radius))
+"""
+    uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
+    self.assertEqual(expected_code, reformatter.Reformat(uwlines))
+
+  def testSplitBeforeArithmeticOperators(self):
+    try:
+      style.SetGlobalStyle(
+          style.CreateStyleFromConfig(
+              '{based_on_style: pep8, split_before_arithmetic_operator: true}'))
+
+      unformatted_code = """\
+def _():
+    raise ValueError('This is a long message that ends with an argument: ' + str(42))
+"""
+      expected_formatted_code = """\
+def _():
+    raise ValueError('This is a long message that ends with an argument: '
+                     + str(42))
+"""
+      uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
+      self.assertCodeEqual(expected_formatted_code,
+                           reformatter.Reformat(uwlines))
+    finally:
+      style.SetGlobalStyle(style.CreatePEP8Style())
+
+  def testListSplitting(self):
+    unformatted_code = """\
+foo([(1,1), (1,1), (1,1), (1,1), (1,1), (1,1), (1,1),
+     (1,1), (1,1), (1,1), (1,1), (1,1), (1,1), (1,1),
+     (1,10), (1,11), (1, 10), (1,11), (10,11)])
+"""
+    expected_code = """\
+foo([(1, 1), (1, 1), (1, 1), (1, 1), (1, 1), (1, 1), (1, 1), (1, 1), (1, 1),
+     (1, 1), (1, 1), (1, 1), (1, 1), (1, 1), (1, 10), (1, 11), (1, 10),
+     (1, 11), (10, 11)])
+"""
+    uwlines = yapf_test_helper.ParseAndUnwrap(unformatted_code)
+    self.assertCodeEqual(expected_code, reformatter.Reformat(uwlines))
 
 
 if __name__ == '__main__':
