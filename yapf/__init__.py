@@ -121,16 +121,16 @@ def main(argv):
       '-p',
       '--parallel',
       action='store_true',
-      help=('Run yapf in parallel when formatting multiple files. Requires '
+      help=('run yapf in parallel when formatting multiple files. Requires '
             'concurrent.futures in Python 2.X'))
   parser.add_argument(
       '-vv',
       '--verbose',
       action='store_true',
-      help='Print out file names while processing')
+      help='print out file names while processing')
 
   parser.add_argument(
-      'files', nargs='*', help='Reads from stdin when no files are specified.')
+      'files', nargs='*', help='reads from stdin when no files are specified.')
   args = parser.parse_args(argv[1:])
 
   if args.version:
@@ -149,7 +149,7 @@ def main(argv):
         print('#', line and ' ' or '', line, sep='')
       option_value = style.Get(option)
       if isinstance(option_value, set) or isinstance(option_value, list):
-        option_value = ', '.join(option_value)
+        option_value = ', '.join(map(str, option_value))
       print(option.lower(), '=', option_value, sep='')
       print()
     return 0

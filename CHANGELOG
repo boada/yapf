@@ -2,6 +2,27 @@
 # All notable changes to this project will be documented in this file.
 # This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.28.0] UNRELEASED
+### Added
+- New knob `SPLIT_ALL_TOP_LEVEL_COMMA_SEPARATED_VALUES` is a variation on
+  `SPLIT_ALL_COMMA_SEPARATED_VALUES` in which, if a subexpression with a comma
+  fits in its starting line, then the subexpression is not split (thus avoiding
+  unnecessary splits).
+### Changed
+- Set `INDENT_DICTIONARY_VALUE` for Google style.
+### Fixed
+- `BLANK_LINE_BEFORE_NESTED_CLASS_OR_DEF=False` wasn't honored because the
+  number of newlines was erroneously calculated beforehand.
+- Lambda expressions shouldn't have an increased split penalty applied to the
+  'lambda' keyword. This prevents them from being properly formatted when they're
+  arguments to functions.
+- A comment with continuation markers (??) shouldn't mess with the lineno count.
+- Only emit unformatted if the "disable long line" is at the end of the line.
+  Otherwise we could mess up formatting for containers which have them
+  interspersed with code.
+- Fix a potential race condition by using the correct style for opening a file
+  which may not exist.
+
 ## [0.27.0] 2019-04-07
 ### Added
 - `SPLIT_BEFORE_ARITHMETIC_OPERATOR` splits before an arithmetic operator when

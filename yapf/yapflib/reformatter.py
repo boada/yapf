@@ -122,6 +122,7 @@ def _RetainRequiredVerticalSpacing(cur_uwline, prev_uwline, lines):
   prev_tok = None
   if prev_uwline is not None:
     prev_tok = prev_uwline.last
+
   for cur_tok in cur_uwline.tokens:
     _RetainRequiredVerticalSpacingBetweenTokens(cur_tok, prev_tok, lines)
 
@@ -152,7 +153,7 @@ def _RetainRequiredVerticalSpacingBetweenTokens(cur_tok, prev_tok, lines):
   else:
     cur_lineno = cur_tok.lineno
 
-  if prev_tok.value.endswith('\\'):
+  if not prev_tok.is_comment and prev_tok.value.endswith('\\'):
     prev_lineno += prev_tok.value.count('\n')
 
   required_newlines = cur_lineno - prev_lineno
@@ -239,10 +240,7 @@ def _LineContainsI18n(uwline):
 
 def _LineContainsPylintDisableLineTooLong(uwline):
   """Return true if there is a "pylint: disable=line-too-long" comment."""
-  return any(
-      re.search(r'\bpylint:\s+disable=line-too-long\b', tok.value)
-      for tok in uwline.tokens
-      if tok.is_comment)
+  return re.search(r'\bpylint:\s+disable=line-too-long\b', uwline.last.value)
 
 
 def _LineHasContinuationMarkers(uwline):
@@ -587,11 +585,11 @@ ONE_BLANK_LINE = 2
 TWO_BLANK_LINES = 3
 
 
-def _IsClassOrDef(uwline):
-  if uwline.first.value in {'class', 'def'}:
+def _IsClassOrDef(tok):
+  if tok.value in {'class', 'def', '@'}:
     return True
-
-  return [t.value for t in uwline.tokens[:2]] == ['async', 'def']
+  return (tok.next_token and tok.value == 'async' and
+          tok.next_token.value == 'def')
 
 
 def _CalculateNumberOfNewlines(first_token, indent_depth, prev_uwline,
@@ -638,6 +636,11 @@ def _CalculateNumberOfNewlines(first_token, indent_depth, prev_uwline,
       # Separate a class or function from the module-level docstring with
       # appropriate number of blank lines.
       return 1 + style.Get('BLANK_LINES_AROUND_TOP_LEVEL_DEFINITION')
+    if (not style.Get('BLANK_LINE_BEFORE_NESTED_CLASS_OR_DEF') and
+        _IsClassOrDef(first_token)):
+      pytree_utils.SetNodeAnnotation(first_token.node,
+                                     pytree_utils.Annotation.NEWLINES, None)
+      return NO_BLANK_LINES
     if _NoBlankLinesBeforeCurrentToken(prev_last_token.value, first_token,
                                        prev_last_token):
       return NO_BLANK_LINES
@@ -672,7 +675,7 @@ def _CalculateNumberOfNewlines(first_token, indent_depth, prev_uwline,
                                            pytree_utils.Annotation.NEWLINES,
                                            None)
           return NO_BLANK_LINES
-    elif _IsClassOrDef(prev_uwline):
+    elif _IsClassOrDef(prev_uwline.first):
       if not style.Get('BLANK_LINE_BEFORE_NESTED_CLASS_OR_DEF'):
         pytree_utils.SetNodeAnnotation(first_token.node,
                                        pytree_utils.Annotation.NEWLINES, None)
